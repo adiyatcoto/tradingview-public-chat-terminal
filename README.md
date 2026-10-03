@@ -2,7 +2,7 @@
 
 A local-first web terminal for viewing and participating in selected TradingView public and private chat rooms. The application runs only on the operator's computer, keeps credentials outside source control, and uses the operator's authenticated TradingView session to retrieve chat data.
 
-> **Important:** This is an independent, unofficial project. It is not affiliated with, endorsed by, or supported by TradingView. TradingView endpoints used by this application may change or become unavailable at any time. Use the software only in accordance with TradingView's terms, applicable law, and your organisation's policies.
+> **Unofficial project — no TradingView affiliation:** This independent, community-maintained project is **not an official TradingView product**. It is not affiliated with, endorsed by, sponsored by, or supported by TradingView. “TradingView” and related marks belong to their respective owners. TradingView endpoints used by this application may change or become unavailable at any time. Use the software only in accordance with TradingView's terms, applicable law, and your organisation's policies. See [DISCLAIMER.md](DISCLAIMER.md).
 
 ## Contents
 
