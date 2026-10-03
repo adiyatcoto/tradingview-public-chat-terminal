@@ -273,8 +273,10 @@
     font-size: 12px;
     margin-bottom: 2px;
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     align-items: baseline;
+    min-width: 0;
   }
   .msg .username { font-weight: 600; }
   .msg .username a { color: var(--amber); text-decoration: none; }
@@ -298,6 +300,9 @@
     color: var(--accent);
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: 10.5px;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    max-width: 100%;
   }
   .msg .text {
     font-size: 13.5px;
