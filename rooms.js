@@ -1,0 +1,30 @@
+// TradingView public-chat room catalogue.
+// The "general", "stock", and "bitcoin" room IDs are built-in pinned rooms.
+// The remaining entries are publicly accessible community-created rooms.
+module.exports = [
+  { room_id: "general", title: "Forex", short: "Forex" },
+  { room_id: "stock", title: "Stocks & Indexes", short: "Stocks" },
+  { room_id: "bitcoin", title: "Cryptocurrencies", short: "Crypto" },
+  { room_id: "1nO89eozE9k3lDUA", title: "Bitcoin Chat - BTCUSD", short: "BTCUSD" },
+  { room_id: "EB6LcmbJ6JV7ZcxR", title: "Chart Patterns Help", short: "Patterns" },
+  { room_id: "DjPnZNEzTJELAFiR", title: "Community Powered Help", short: "Help" },
+  { room_id: "HQSb9LtO5bZY3Zha", title: "DAX and GER30", short: "DAX" },
+  { room_id: "yrgtWWVYUbIiCt6S", title: "Ethereum - ETH", short: "ETH" },
+  { room_id: "Sj9VbiDu7w7CAVnv", title: "EURUSD Chat", short: "EURUSD" },
+  { room_id: "aWc3qglAkybnKGwA", title: "Gold Scalping Strat (Group)", short: "Gold Scalp" },
+  { room_id: "spKNkcfKuFVnvOKV", title: "Gold Trading Chat", short: "Gold" },
+  { room_id: "b4sFOMIVqPkq8gfQ", title: "Indian Indices - BSE, NSE, NIFTY", short: "India" },
+  { room_id: "c8BzrhGRvXxGXWnJ", title: "Key Hidden Levels", short: "Levels" },
+  { room_id: "UajYkAfATwDxwyFp", title: "Natural Gas Chat", short: "Nat Gas" },
+  { room_id: "huufTEomwseDbwhZ", title: "nmike Divergence Trading Room", short: "Divergence" },
+  { room_id: "ZaJvQy7PDvTR4irM", title: "Oil Chat - WTI & Brent", short: "Oil" },
+  { room_id: "VySb00lFxS9gqOgX", title: "Options Trading", short: "Options" },
+  { room_id: "BfmVowG1TZkKO235", title: "Pine Script™ Q&A", short: "Pine Script" },
+  { room_id: "QEgUtpDx4PC4OjkP", title: "Risk Master Guild Group", short: "Risk Guild" },
+  { room_id: "Iiu0jvBE9ZnKwVvd", title: "Romanian Traders", short: "Romania" },
+  { room_id: "HA8BTyb3CCnvIOGD", title: "Russian Traders", short: "Russia" },
+  { room_id: "tEkrZBiZi0TaWw4S", title: "Silver Trading Chat", short: "Silver" },
+  { room_id: "rbTr82rkZ1zNqTxI", title: "S&P 500 Chat - SPX, SPY, ES", short: "SPX" },
+  { room_id: "U3rqymhA6Scg6Z3C", title: "The Leap", short: "The Leap" },
+  { room_id: "mMIA4tbg23gZ4brS", title: "US30 & NAS100 (Group)", short: "US30/NAS" },
+];

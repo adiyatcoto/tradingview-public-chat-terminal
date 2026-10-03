@@ -1,0 +1,2114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Public Chat Viewer</title>
+<style>
+  :root {
+    --bg: #0c0e0f;
+    --panel: #121517;
+    --panel-2: #171b1d;
+    --line: #23292c;
+    --text: #d8dedd;
+    --text-dim: #7c8a89;
+    --accent: #3ddc97;
+    --accent-dim: #1f6b4f;
+    --amber: #e0a845;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Sidebar */
+  #sidebar {
+    width: var(--sidebar-width, 260px);
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    transition: width 0.2s ease, border-color 0.2s ease;
+  }
+  body.sidebar-collapsed #sidebar {
+    width: 0;
+    border-right-color: transparent;
+  }
+  #sidebar-resizer {
+    position: fixed;
+    z-index: 50;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--sidebar-width, 260px) - 3px);
+    width: 7px;
+    cursor: col-resize;
+  }
+  #sidebar-resizer::after {
+    content: ""; position: absolute; inset: 0 2px; background: transparent; transition: background .15s;
+  }
+  #sidebar-resizer:hover::after, body.resizing-sidebar #sidebar-resizer::after { background: var(--accent); }
+  body.sidebar-collapsed #sidebar-resizer { display: none; }
+  #sidebar-header {
+    padding: 18px 16px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  #sidebar-header .dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 8px;
+    box-shadow: 0 0 6px var(--accent);
+  }
+  #sidebar-header h1 {
+    font-size: 13px;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+    flex: 0 1 280px;
+    margin: 0;
+    color: var(--text);
+  }
+  #sidebar-header p {
+    margin: 4px 0 0 15px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  #notification-summary {
+    margin: 9px 0 0 15px; padding: 6px 9px; border: 1px solid var(--line);
+    border-radius: 999px; font: 600 11px inherit; color: var(--text-dim);
+    background: var(--panel-2); cursor: pointer; display: inline-flex;
+    align-items: center; justify-content: center; gap: 6px; line-height: 17px;
+  }
+  #notification-summary:hover { color: var(--accent); border-color: var(--accent-dim); background: #1b2822; }
+  #notification-summary .section-badge { display: block; margin: 0; }
+  #notification-modal { display: none; position: fixed; z-index: 110; inset: 0; background: rgb(0 0 0 / 65%); align-items: center; justify-content: center; }
+  #notification-modal.active { display: flex; }
+  #notification-panel { width: min(560px, calc(100vw - 32px)); max-height: min(640px, calc(100vh - 32px)); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  #notification-panel h3 { margin: 0 0 10px; font-size: 14px; }
+  .notification-item { width: 100%; text-align: left; display: block; padding: 10px; margin: 0 0 5px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; font: 12px inherit; }
+  .notification-item:hover { border-color: var(--accent-dim); }
+  .notification-item .notification-meta { display: block; margin-top: 6px; font-size: 12px; font-weight: 600; }
+  .notification-item .notification-room { color: #77bfff; }
+  .notification-item .notification-time { color: #c89cff; }
+  .notification-item.unread { border-left: 3px solid #ed4b4b; background: #321d22; }
+  .notification-item .notification-label { color: var(--text-dim); font-size: 11px; }
+  .notification-item .notification-message { display: block; margin-top: 3px; white-space: pre-wrap; }
+  #room-list {
+    list-style: none;
+    margin: 0;
+    padding: 8px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  #room-list li {
+    padding: 9px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 8px;
+  }
+  #room-list li:hover { background: var(--panel-2); color: var(--text); }
+  #room-list li.active {
+    background: var(--accent-dim);
+    color: #eafff4;
+    box-shadow: inset 3px 0 0 var(--accent);
+    font-weight: 700;
+  }
+  #room-list li.active .room-title { color: #eafff4; }
+  #room-list li .room-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 0 1 auto; }
+  #room-list li .room-id {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    flex-shrink: 0;
+  }
+  .room-badge, .section-badge {
+    min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px;
+    background: #df4d4d; color: white; font: 700 10px/17px inherit; text-align: center; flex-shrink: 0;
+  }
+  .room-star { appearance: none; border: 0; padding: 0 2px; background: transparent; color: #65706f; font: 17px/1 inherit; cursor: pointer; flex: 0 0 auto; }
+  .room-star:hover, .room-star.active { color: #f2c14e; }
+  #room-list li.room-section-header { padding: 10px 4px 4px; margin: 0; }
+  /* Rooms are children of Public/Private categories: retain stable indentation
+     without separating the dot and badge from the room name. */
+  #room-list li.room-entry { margin-left: 12px; width: calc(100% - 12px); padding-left: 12px; }
+  .room-section-toggle {
+    width: 100%; display: flex; justify-content: space-between; align-items: center;
+    padding: 3px 6px; color: var(--text-dim); background: none; border: 0;
+    cursor: pointer; text-transform: uppercase; letter-spacing: .08em; font: 700 10px inherit;
+  }
+  .room-section-toggle:hover { color: var(--accent); }
+  /* Parent categories intentionally use a colour distinct from room names. */
+  .room-section-header.public-section .room-section-toggle { color: #62b6ff; }
+  .room-section-header.private-section .room-section-toggle { color: #c992ff; }
+  .room-section-header.favorites-section .room-section-toggle { color: #f2c14e; }
+  .room-section-header.public-section .room-section-toggle:hover { color: #9bd4ff; }
+  .room-section-header.private-section .room-section-toggle:hover { color: #e0bdff; }
+  .room-section-header.favorites-section .room-section-toggle:hover { color: #ffdc7d; }
+  .room-section-header .room-section-toggle > span:first-child { font-weight: 800; }
+  #room-list li.room-entry.section-hidden { display: none; }
+
+  /* Main */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: relative;
+  }
+  body.mine-filter #messages { background: #351521; }
+  body.mine-filter #compose-wrap { background: #281019; }
+  #notification-banner { display: none; width: 100%; border: 0; background: #c93636; color: white; padding: 10px 18px; font: 800 13px inherit; letter-spacing: .02em; cursor: pointer; text-align: center; }
+  #notification-banner.active { display: block; }
+  #notification-banner:hover { background: #e04747; }
+  #message-toast-stack { position: fixed; z-index: 120; top: 14px; left: 50%; width: min(360px, calc(100vw - 36px)); transform: translateX(-50%); display: grid; gap: 8px; }
+  .message-toast {
+    --toast-accent: #3ddc97; --toast-bg: #17302a;
+    position: relative; display: flex; align-items: flex-start; gap: 10px; padding: 11px 37px 11px 13px; border: 1px solid var(--toast-accent);
+    border-radius: 15px; background: var(--toast-bg); color: var(--text); box-shadow: 0 12px 32px rgb(0 0 0 / 42%);
+    cursor: pointer; text-align: left; animation: toast-in .2s ease;
+  }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
+  .message-toast:hover { filter: brightness(1.12); }
+  .message-toast .toast-avatar { position: relative; width: 30px; height: 30px; overflow: hidden; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; background: var(--toast-accent); color: #07110e; font: 800 13px inherit; }
+  .message-toast .toast-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+  .message-toast .toast-copy { min-width: 0; width: 0; flex: 1 1 auto; }
+  .message-toast .toast-meta { display: block; color: var(--toast-accent); font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .message-toast .toast-message { display: block; margin-top: 3px; color: var(--text); font-size: 12px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .message-toast .toast-close { position: absolute; right: 7px; top: 6px; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-dim); font: 28px/1 inherit; cursor: pointer; display: grid; place-items: center; }
+  .message-toast .toast-close:hover { color: white; }
+  #main-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .header-primary, .header-controls { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .header-controls { flex-wrap: wrap; }
+  #sidebar-toggle {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 17px;
+    line-height: 1;
+  }
+  #sidebar-toggle:hover {
+    color: var(--accent);
+    border-color: var(--accent-dim);
+  }
+  #main-header h2 {
+    font-size: 15px;
+    margin: 0;
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 0 1 auto;
+  }
+  #main-header .status {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  #main-header .status.error { color: #e0574a; }
+  #chat-filter { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: 12px inherit; }
+  #clear-history { background: none; color: var(--text-dim); border: 0; cursor: pointer; font: 11px inherit; }
+  #clear-history:hover { color: #e0574a; }
+  #cache-size { color: var(--text-dim); font: 10.5px ui-monospace, "SF Mono", Menlo, monospace; white-space: nowrap; }
+  @media (max-width: 760px) {
+    #main-header { padding: 10px 12px; gap: 7px; }
+    .header-primary { flex-wrap: wrap; gap: 7px; }
+    #main-header .status { flex: 1 1 100%; }
+    #message-search { width: 100%; }
+    #jump-latest { right: 12px; }
+  }
+  #load-older { align-self: center; background: var(--panel-2); color: var(--text-dim); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+  #load-older:hover { color: var(--accent); border-color: var(--accent-dim); }
+  .unread-divider { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; color: #ed4b4b; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+  .unread-divider::before, .unread-divider::after { content: ""; height: 1px; flex: 1; background: #ed4b4b; opacity: .75; }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .msg {
+    display: flex;
+    gap: 10px;
+  }
+  @keyframes fadein { from { opacity: 0; transform: translateY(3px);} to { opacity: 1; transform: none; } }
+  .msg img.avatar {
+    width: 30px; height: 30px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    background: var(--panel-2);
+    object-fit: cover;
+  }
+  .msg .body { min-width: 0; flex: 1; }
+  .msg .meta {
+    font-size: 12px;
+    margin-bottom: 2px;
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .msg .username { font-weight: 600; }
+  .msg .username a { color: var(--amber); text-decoration: none; }
+  .msg .username a:hover { color: #ffd27d; text-decoration: underline; }
+  .msg .mention-user-btn {
+    border: 0; background: none; color: var(--accent); font: 800 13px/1 inherit;
+    padding: 0 2px; cursor: pointer; border-radius: 3px;
+  }
+  .msg .mention-user-btn:hover { background: var(--accent-dim); color: #eafff4; }
+  .inline-mention {
+    display: inline; border: 0; padding: 0; margin: 0; background: none;
+    color: #62b6ff; font: inherit; font-weight: 700; cursor: pointer;
+  }
+  .inline-mention:hover { color: #9bd4ff; text-decoration: underline; }
+  .msg .time {
+    color: var(--text-dim);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10.5px;
+  }
+  .msg .symbol {
+    color: var(--accent);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10.5px;
+  }
+  .msg .text {
+    font-size: 13.5px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: pre-wrap;
+    max-width: 100%;
+  }
+  .quoted-message {
+    margin: 5px 0 7px; padding: 6px 9px; border-left: 2px solid var(--accent-dim);
+    background: var(--panel-2); border-radius: 4px; color: var(--text-dim); font-size: 12.5px;
+    overflow-wrap: anywhere; word-break: break-word; max-width: 100%;
+  }
+  .quoted-message .quote-author { color: var(--accent); font-size: 11px; margin-bottom: 2px; }
+  .msg .snapshot {
+    margin-top: 6px;
+    max-width: 320px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    display: block;
+    cursor: zoom-in;
+    background: var(--panel-2);
+  }
+  .msg .snapshot:hover { border-color: var(--accent); }
+  .snapshot-link { display: inline-block; margin-top: 6px; }
+  .chat-link { color: #62b6ff; text-decoration: underline; text-decoration-color: color-mix(in srgb, #62b6ff 45%, transparent); overflow-wrap: anywhere; }
+  .chat-link:hover { color: #9bd4ff; }
+  .tv-link-preview {
+    width: min(440px, 100%); margin-top: 7px; border: 1px solid var(--line);
+    border-radius: 7px; overflow: hidden; background: var(--panel-2);
+  }
+  .tv-link-preview > a { display: block; color: inherit; text-decoration: none; }
+  .tv-link-preview img { display: block; width: 100%; max-height: 230px; object-fit: cover; cursor: zoom-in; background: var(--bg); }
+  .tv-link-preview .preview-copy { padding: 8px 10px; }
+  .tv-link-preview strong { display: block; font-size: 12px; color: var(--text); }
+  .tv-link-preview small { display: block; color: var(--text-dim); font-size: 11px; margin-top: 3px; line-height: 1.35; }
+  .tv-link-preview.loading { min-height: 30px; padding: 8px 10px; color: var(--text-dim); font-size: 11px; }
+  .tv-link-preview .preview-thumbnail { position: relative; height: 150px; display: grid; place-items: center; overflow: hidden; color: #dcecff; background: linear-gradient(145deg, #142b42, #0d1724 55%, #183649); font: 800 22px/1.1 inherit; letter-spacing: -.03em; }
+  .tv-link-preview .preview-thumbnail::before { content: ""; position: absolute; width: 150%; height: 1px; background: repeating-linear-gradient(90deg, transparent 0 18px, rgb(155 212 255 / 18%) 18px 19px); transform: rotate(-12deg); }
+  .tv-link-preview .preview-thumbnail span { position: relative; padding: 8px 12px; border: 1px solid rgb(155 212 255 / 35%); border-radius: 7px; background: rgb(7 19 31 / 65%); }
+
+  #image-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgb(0 0 0 / 85%);
+    padding: 28px;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+  }
+  #image-modal.active { display: flex; }
+  #image-modal img { max-width: 100%; max-height: 100%; object-fit: contain; cursor: default; }
+  #image-modal-close {
+    position: absolute; top: 14px; right: 18px; border: 0; background: none;
+    color: white; font-size: 30px; cursor: pointer;
+  }
+
+  .msg .actions {
+    margin-top: 4px;
+  }
+  .msg .reply-btn {
+    font-size: 11px;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 0;
+    font-family: inherit;
+  }
+  .msg .reply-btn:hover { color: var(--accent); }
+
+  /* Compose area */
+  #compose-wrap {
+    border-top: 1px solid var(--line);
+    padding: 12px 24px 16px;
+    position: relative;
+  }
+  #jump-latest {
+    position: absolute; right: 24px; bottom: calc(100% + 10px); z-index: 15;
+    border: 1px solid var(--accent-dim); border-radius: 18px; padding: 7px 11px;
+    background: var(--panel-2); color: var(--accent); box-shadow: 0 5px 16px rgb(0 0 0 / 35%);
+    font: 700 12px inherit; cursor: pointer;
+  }
+  #jump-latest:hover { background: var(--accent-dim); color: #eafff4; }
+  #quote-preview {
+    display: none;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    background: var(--panel-2);
+    border-left: 2px solid var(--accent-dim);
+    padding: 8px 34px 8px 10px;
+    border-radius: 4px;
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    bottom: calc(100% + 8px);
+    z-index: 12;
+    box-shadow: 0 -5px 18px rgb(0 0 0 / 24%);
+  }
+  #quote-preview.active { display: block; }
+  #quote-author { display: block; color: var(--accent); font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+  #quote-preview button {
+    background: none; border: none; color: var(--text-dim);
+    cursor: pointer; font-size: 14px; line-height: 1;
+  }
+  #quote-edit-input {
+    display: block; width: 100%; min-height: 34px; max-height: 220px; resize: none; border: 0;
+    background: transparent; color: var(--text-dim); font: inherit; line-height: 1.4;
+  }
+  /* The quote box is anchored above the composer; textarea growth expands
+     upward rather than pushing the input downward. */
+  #quote-clear { position: absolute; top: 7px; right: 9px; width: 30px; height: 30px; font-size: 24px !important; }
+  #quote-edit-input:focus { outline: none; color: var(--text); }
+  #ticker-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  #ticker-row label { color: var(--text-dim); font-size: 10.5px; white-space: nowrap; }
+  #compose-row { display: flex; gap: 6px; align-items: flex-end; }
+  #compose-input {
+    flex: 1;
+    min-width: 0;
+    min-height: 30px;
+    resize: none;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    line-height: 1.5;
+    max-height: 260px;
+  }
+  .resize-handle {
+    position: absolute; z-index: 2; width: 62px; height: 15px; padding: 0; border: 0;
+    border-radius: 5px 5px 0 0; background: var(--panel-2); color: var(--text-dim);
+    font: 700 8px/15px inherit; letter-spacing: .02em; cursor: ns-resize; user-select: none;
+  }
+  .resize-handle:hover, .resize-handle:focus-visible { color: var(--accent); outline: none; }
+  /* The resize handle spans the chat-feed divider and the composer area. */
+  #compose-resize { top: -8px; left: 24px; }
+  #compose-input:focus { outline: none; border-color: var(--accent-dim); }
+  #message-search {
+    width: min(260px, 24vw);
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 7px; padding: 8px 10px; font: inherit; font-size: 12px;
+  }
+  #message-search:focus { outline: none; border-color: var(--accent-dim); }
+  #send-btn {
+    background: var(--accent-dim);
+    color: #eafff4;
+    border: none;
+    border-radius: 8px;
+    height: 30px;
+    padding: 0 10px;
+    font-size: 11px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #send-btn:hover { background: var(--accent); color: #06130d; }
+  #send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  #capture-btn {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    height: 30px; border-radius: 8px; padding: 0 9px; font-size: 10px; cursor: pointer; flex-shrink: 0;
+  }
+  #capture-btn:hover { border-color: var(--accent); color: var(--accent); }
+  #emoji-btn { height: 30px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; font-size: 14px; cursor: pointer; }
+  #emoji-btn:hover { border-color: var(--accent); }
+  #emoji-picker {
+    position: absolute; bottom: 76px; right: 116px; display: none; z-index: 20;
+    max-width: 310px; padding: 7px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--panel-2); box-shadow: 0 10px 28px rgb(0 0 0 / 45%);
+  }
+  #emoji-picker.active { display: flex; flex-wrap: wrap; gap: 2px; }
+  #emoji-picker .picker-head { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0 3px 3px; color: var(--text-dim); font-size: 11px; }
+  #emoji-picker .picker-close, .modal-close { width: 30px; height: 30px; border: 0; border-radius: 50%; background: none; color: var(--text-dim); font: 24px/1 inherit; cursor: pointer; padding: 0; display: grid; place-items: center; }
+  #emoji-picker .picker-close:hover, .modal-close:hover { color: white; }
+  #emoji-picker button { border: 0; background: transparent; padding: 5px; font-size: 18px; cursor: pointer; border-radius: 4px; }
+  #emoji-picker button:hover { background: var(--accent-dim); }
+  #symbol-input {
+    width: min(220px, 100%); background: var(--panel-2); border: 1px solid var(--line);
+    height: 30px; color: var(--text); border-radius: 6px; padding: 0 8px; font: 11px ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  #symbol-input:focus { outline: none; border-color: var(--accent-dim); }
+  #capture-state { font-size: 11px; color: var(--accent); margin-top: 7px; display: none; }
+  #capture-state.active { display: flex; align-items: center; gap: 8px; }
+  #capture-state img { width: 84px; height: 48px; object-fit: cover; border: 1px solid var(--line); border-radius: 5px; cursor: zoom-in; }
+  #capture-state img:hover { border-color: var(--accent); }
+  #capture-state .capture-copy { color: var(--text-dim); }
+  #capture-state .capture-preview-hint { color: #77bfff; font-weight: 700; }
+  #capture-state button { background: none; border: 0; cursor: pointer; font: 700 11px inherit; }
+  #capture-state .capture-use { color: var(--accent); }
+  #capture-state .capture-delete, #capture-state .capture-remove { color: #e0574a; }
+  #capture-review { display: none; position: fixed; inset: 0; z-index: 105; padding: 26px; background: rgb(0 0 0 / 88%); align-items: center; justify-content: center; }
+  #capture-review.active { display: flex; }
+  #capture-review-panel { position: relative; display: flex; flex-direction: column; gap: 12px; width: min(1100px, 100%); max-height: 100%; }
+  #capture-review-image { display: block; max-width: 100%; max-height: calc(100vh - 132px); margin: 0 auto; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  #capture-review-actions { display: flex; justify-content: center; gap: 10px; }
+  #capture-review-actions button { min-width: 100px; height: 34px; border: 1px solid var(--line); border-radius: 7px; font: 700 12px inherit; cursor: pointer; }
+  #capture-use { border-color: var(--accent) !important; background: var(--accent-dim); color: #eafff4; }
+  #capture-delete { background: var(--panel-2); color: #ff9387; }
+  #capture-review-close { position: absolute; top: 8px; right: 8px; }
+  #notification-panel h3 { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #send-note {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+  #send-note.error { color: #e0574a; }
+
+  #mention-dropdown {
+    position: absolute;
+    bottom: 72px;
+    left: 24px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    display: none;
+    min-width: 160px;
+    max-height: 160px;
+    overflow-y: auto;
+    z-index: 10;
+  }
+  #mention-dropdown.active { display: block; }
+  #mention-dropdown .item {
+    padding: 7px 12px;
+    font-size: 12.5px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  #mention-dropdown .item:hover,
+  #mention-dropdown .item.highlighted {
+    background: var(--accent-dim);
+    color: #eafff4;
+  }
+
+  #empty-state, #error-state {
+    margin: auto;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    max-width: 360px;
+    line-height: 1.6;
+  }
+  #error-state code {
+    display: block;
+    margin-top: 8px;
+    background: var(--panel-2);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    color: #e0574a;
+  }
+
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h1><span class="dot"></span>Public Chat Viewer</h1>
+      <p>TradingView — read only</p>
+      <button id="notification-summary" type="button" title="View all mentions and replies">Mention & Reply <span id="notification-badge" class="section-badge" hidden>0</span></button>
+    </div>
+    <ul id="room-list"></ul>
+  </div>
+  <div id="sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="Resize room panel"></div>
+
+  <div id="main">
+    <div id="message-toast-stack" aria-live="polite" aria-label="New messages"></div>
+    <button id="notification-banner" type="button" aria-live="polite"></button>
+    <div id="main-header">
+      <div class="header-primary">
+        <button id="sidebar-toggle" type="button" aria-label="Hide room panel" aria-expanded="true" title="Hide room panel">‹</button>
+        <h2 id="room-title">Select a room</h2>
+        <span class="status" id="status"></span>
+      </div>
+      <div class="header-controls">
+        <select id="chat-filter" aria-label="Filter chat">
+          <option value="all">All chat</option>
+          <option value="mine">My messages & mentions</option>
+        </select>
+        <input id="message-search" type="search" placeholder="Search username or message…" aria-label="Search usernames or messages in this room" autocomplete="off" />
+        <button id="clear-history" type="button" title="Clear local chat history cache">Clear cache</button>
+        <span id="cache-size" title="Local chat history cache size">cache 0 B</span>
+      </div>
+    </div>
+    <div id="messages">
+      <div id="empty-state">Select a room from the sidebar to view its chat.</div>
+    </div>
+
+    <div id="compose-wrap">
+      <button id="jump-latest" type="button" hidden aria-live="polite"></button>
+      <div id="quote-preview">
+        <span id="quote-author"></span>
+        <textarea id="quote-edit-input" aria-label="Edit quote before sending"></textarea>
+        <button id="quote-clear" title="Cancel reply">&times;</button>
+      </div>
+      <div id="ticker-row">
+        <label for="symbol-input">Ticker display</label>
+        <input id="symbol-input" type="text" placeholder="CRYPTO:BTCUSD" autocomplete="off" spellcheck="false" title="Active chart ticker" />
+      </div>
+      <div id="compose-row">
+        <button id="compose-resize" class="resize-handle" type="button" title="Drag upward to resize chat input" aria-label="Drag upward to resize chat input">↕ Resize</button>
+        <textarea id="compose-input" rows="1" placeholder="Write a message… (type @ to mention)"></textarea>
+        <button id="emoji-btn" type="button" title="Insert a TradingView emoji :shades:">😎</button>
+        <button id="capture-btn" type="button" title="Capture the selected tab or chart">Capture chart</button>
+        <button id="send-btn">Send</button>
+      </div>
+      <div id="capture-state"></div>
+      <div id="mention-dropdown"></div>
+      <div id="emoji-picker" aria-label="Emoji TradingView"></div>
+      <div id="send-note"></div>
+    </div>
+  </div>
+
+  <div id="image-modal" role="dialog" aria-modal="true" aria-label="Expanded chart image">
+    <button id="image-modal-close" type="button" aria-label="Close image">×</button>
+    <img id="image-modal-img" alt="Expanded chart" />
+  </div>
+  <div id="capture-review" role="dialog" aria-modal="true" aria-label="Review captured chart">
+    <div id="capture-review-panel">
+      <button id="capture-review-close" class="modal-close" type="button" aria-label="Delete captured chart">×</button>
+      <img id="capture-review-image" alt="Captured chart preview" />
+      <div id="capture-review-actions"><button id="capture-use" type="button">Use This?</button><button id="capture-delete" type="button">Delete</button></div>
+    </div>
+  </div>
+  <div id="notification-modal" role="dialog" aria-modal="true" aria-label="Mentions and replies">
+    <div id="notification-panel"><h3>Mention & Reply <button id="notification-modal-close" class="modal-close" type="button" aria-label="Close mentions and replies">×</button></h3><div id="notification-list"></div></div>
+  </div>
+
+<script>
+const POLL_MS = 5000;
+let currentRoom = null;
+let pollTimer = null;
+let renderedIds = new Set();
+let currentMessages = [];
+let currentOffset = 0;
+let hasMoreHistory = true;
+let loadingOlder = false;
+let ignoreScrollUntil = 0;
+let roomLoadGeneration = 0;
+let selfUsername = "";
+let roomsById = new Map();
+let unreadByRoom = JSON.parse(localStorage.getItem("tv-chat-unread") || "{}");
+let unreadStartByRoom = JSON.parse(localStorage.getItem("tv-chat-unread-start") || "{}");
+let notificationIds = new Set(JSON.parse(localStorage.getItem("tv-chat-notification-ids") || "[]"));
+let notificationRecords = JSON.parse(localStorage.getItem("tv-chat-notification-records") || "[]");
+let roomLatestIds = JSON.parse(localStorage.getItem("tv-chat-room-latest") || "{}");
+let roomWatchPrimed = Boolean(localStorage.getItem("tv-chat-room-watch-primed"));
+const collapsedSections = new Set(JSON.parse(localStorage.getItem("tv-chat-collapsed-sections") || "[]"));
+const favoriteRoomIds = new Set(JSON.parse(localStorage.getItem("tv-chat-favorite-rooms") || "[]"));
+const visitedRoomIds = new Set(JSON.parse(localStorage.getItem("tv-chat-visited-rooms") || "[]"));
+const roomActivity = JSON.parse(localStorage.getItem("tv-chat-room-activity") || "{}");
+let notificationBannerVisible = false;
+
+const roomListEl = document.getElementById("room-list");
+const messagesEl = document.getElementById("messages");
+const roomTitleEl = document.getElementById("room-title");
+const statusEl = document.getElementById("status");
+const sidebarToggle = document.getElementById("sidebar-toggle");
+const sidebarResizer = document.getElementById("sidebar-resizer");
+const chatFilter = document.getElementById("chat-filter");
+const messageSearch = document.getElementById("message-search");
+const notificationBadge = document.getElementById("notification-badge");
+const notificationSummary = document.getElementById("notification-summary");
+const notificationModal = document.getElementById("notification-modal");
+const notificationList = document.getElementById("notification-list");
+const notificationBanner = document.getElementById("notification-banner");
+const notificationModalClose = document.getElementById("notification-modal-close");
+const messageToastStack = document.getElementById("message-toast-stack");
+const cacheSizeEl = document.getElementById("cache-size");
+const jumpLatestBtn = document.getElementById("jump-latest");
+let notificationUnread = Number(localStorage.getItem("tv-chat-notification-unread") || 0);
+const NOTIFICATION_STORE_VERSION = "2";
+function saveNotificationRecords() {
+  notificationRecords = notificationRecords.slice(-300);
+  notificationUnread = notificationRecords.reduce((count, item) => count + Number(!item.read), 0);
+  localStorage.setItem("tv-chat-notification-records", JSON.stringify(notificationRecords));
+  localStorage.setItem("tv-chat-notification-unread", String(notificationUnread));
+  localStorage.setItem("tv-chat-notification-store-version", NOTIFICATION_STORE_VERSION);
+  renderNotificationBadge();
+  document.title = notificationUnread ? `(${notificationUnread > 99 ? "99+" : notificationUnread}) Public Chat Viewer` : "Public Chat Viewer";
+}
+function renderNotificationBadge() {
+  notificationBadge.hidden = !notificationUnread;
+  notificationBadge.textContent = notificationUnread > 99 ? "99+" : notificationUnread;
+  notificationBanner.textContent = `${notificationUnread > 99 ? "99+" : notificationUnread} New Notifications!`;
+  notificationBanner.classList.toggle("active", notificationBannerVisible && notificationUnread > 0);
+}
+function openNotificationModal() {
+  // The first click also supplies the user gesture required for browser audio.
+  const unlock = new Audio("/sounds/mention.mp3");
+  unlock.volume = 0;
+  unlock.play().then(() => { unlock.pause(); unlock.currentTime = 0; }).catch(() => {});
+  renderNotificationList();
+  notificationModal.classList.add("active");
+}
+function notificationData(item) {
+  // Struktur onsite_notifications berbeda antar tipe notifikasi. Cari field
+  // semantik secara rekursif, alih-alih mengasumsikan text.content.data saja.
+  const seen = new Set();
+  const find = (names) => {
+    const visit = (value) => {
+      if (!value || typeof value !== "object" || seen.has(value)) return undefined;
+      seen.add(value);
+      for (const name of names) if (typeof value[name] === "string" || typeof value[name] === "number") return value[name];
+      for (const child of Object.values(value)) {
+        const result = visit(child);
+        if (result !== undefined) return result;
+      }
+      return undefined;
+    };
+    const result = visit(item);
+    seen.clear();
+    return result;
+  };
+  const link = String(find(["url", "href", "link"]) || "");
+  const roomFromLink = link.match(/[?&]room_id=([^&#/]+)/i)?.[1];
+  return {
+    ...item,
+    room_id: String(find(["room_id", "roomId", "chat_room_id", "conversation_room_id", "chat_id", "room"]) || roomFromLink || ""),
+    username: String(find(["username", "user_name", "author_username", "sender_username", "from_username"]) || ""),
+    text: String(find(["message", "chat_message", "message_text", "body", "text"]) || ""),
+    time: find(["time", "created_at", "timestamp", "date"]) || item.time,
+  };
+}
+// Earlier versions combined TradingView onsite payloads (often just names and
+// times) with chat messages. Discard that ambiguous data once; thereafter only
+// messages observed in the local chat feed are retained.
+if (localStorage.getItem("tv-chat-notification-store-version") !== NOTIFICATION_STORE_VERSION) {
+  notificationRecords = [];
+} else {
+  notificationRecords = notificationRecords.filter((item) => item.source === "chat" && item.room_id && item.username && item.message_text);
+}
+saveNotificationRecords();
+function renderNotificationList() {
+  notificationList.innerHTML = "";
+  const records = notificationRecords;
+  if (!records.length) { notificationList.textContent = "No replyable chat mentions or replies yet."; return; }
+  records.slice().reverse().forEach((item) => {
+    const button = document.createElement("button");
+    button.className = `notification-item${item.read ? "" : " unread"}`;
+    button.type = "button";
+    const quoted = item.quoted_text ? `<span class="notification-label">Your message</span><span class="notification-message">${escapeHtml(item.quoted_text)}</span>` : "";
+    const label = item.quoted_text ? "Reply from" : "Mention from";
+    button.innerHTML = `${quoted}<span class="notification-label">${label}</span><strong> ${escapeHtml(item.username)}</strong>` +
+      `<span class="notification-message">${escapeHtml(item.reply_text || item.message_text)}</span>` +
+      `<span class="notification-meta"><span class="notification-room">${escapeHtml(item.room_title || item.room_id)}</span> · <span class="notification-time">${fmtTime(item.time)}</span></span>`;
+    // Notifications use escaped HTML text. Replace emoji shortcodes afterward
+    // to preserve safety while matching the main chat presentation.
+    button.querySelectorAll(".notification-message").forEach((node) => {
+      const message = node.textContent;
+      node.textContent = "";
+      appendEmojiShortcodes(node, message);
+    });
+    button.addEventListener("click", () => navigateToNotification(item));
+    notificationList.appendChild(button);
+  });
+}
+notificationSummary.addEventListener("click", () => {
+  openNotificationModal();
+});
+notificationBanner.addEventListener("click", () => { notificationBannerVisible = false; renderNotificationBadge(); openNotificationModal(); });
+notificationModalClose.addEventListener("click", () => notificationModal.classList.remove("active"));
+notificationModal.addEventListener("click", (event) => { if (event.target === notificationModal) notificationModal.classList.remove("active"); });
+renderNotificationBadge();
+chatFilter.value = localStorage.getItem("tv-chat-filter") || "all";
+function applyChatFilterAppearance() { document.body.classList.toggle("mine-filter", chatFilter.value === "mine"); }
+applyChatFilterAppearance();
+chatFilter.addEventListener("change", () => { localStorage.setItem("tv-chat-filter", chatFilter.value); applyChatFilterAppearance(); renderCurrentMessages(); });
+messageSearch.value = localStorage.getItem("tv-chat-message-search") || "";
+messageSearch.addEventListener("input", () => {
+  localStorage.setItem("tv-chat-message-search", messageSearch.value);
+  renderCurrentMessages();
+});
+
+function mentionsOrRepliesMe(message) {
+  if (!selfUsername) return false;
+  const text = String(message.text || "").toLowerCase();
+  const username = selfUsername.trim().replace(/^@/, "").toLowerCase();
+  // TradingView has sent quotes both with and without quotation marks.
+  return text.includes(`@${username}`) ||
+    text.includes(`[quote="${username}"]`) ||
+    text.includes(`[quote=${username}]`);
+}
+function recordChatNotification(room, message, { countUnread = false } = {}) {
+  if (!room || !message?.id || !message.username || !mentionsOrRepliesMe(message)) return;
+  const id = `chat:${room.room_id}:${message.id}`;
+  const quote = extractLeadingQuote(message.text || "");
+  const replyText = replyTextFromMessage(message.text || "") || String(message.text || "").trim();
+  const record = {
+    id,
+    source: "chat",
+    room_id: room.room_id,
+    room_title: room.title || room.room_id,
+    username: message.username,
+    message_text: String(message.text || ""),
+    quoted_text: quote?.content?.trim() || "",
+    reply_text: replyText,
+    time: message.time,
+    message_id: message.id,
+    type: "chat_mention_or_reply",
+    read: !countUnread,
+  };
+  const index = notificationRecords.findIndex((item) => String(item.id) === id);
+  if (index >= 0) record.read = Boolean(notificationRecords[index].read), notificationRecords[index] = record;
+  else {
+    notificationRecords.push(record);
+    if (countUnread) {
+      notificationBannerVisible = true;
+    }
+  }
+  saveNotificationRecords();
+}
+function rememberRoomActivity(roomId, time = Date.now()) {
+  roomActivity[roomId] = new Date(time).getTime() || Date.now();
+  localStorage.setItem("tv-chat-room-activity", JSON.stringify(roomActivity));
+}
+function processIncomingMessage(room, message, { countUnread = false } = {}) {
+  const sender = String(message?.username || "").replace(/^@/, "").toLowerCase();
+  const isMine = sender && sender === String(selfUsername || "").replace(/^@/, "").toLowerCase();
+  const special = mentionsOrRepliesMe(message);
+  if (special) recordChatNotification(room, message, { countUnread });
+  if (countUnread && !isMine) {
+    new Audio(special ? "/sounds/mention.mp3" : "/sounds/feed.mp3").play().catch(() => {});
+  }
+  if (room?.room_id) rememberRoomActivity(room.room_id, message.time);
+  if (countUnread && !isMine) showIncomingToast(room, message);
+}
+function showIncomingToast(room, message) {
+  if (!room || !message) return;
+  const sender = String(message.username || "Someone").replace(/^@/, "");
+  const preview = replyTextFromMessage(message.text || "") || String(message.text || "").replace(/\[[^\]]+\]/g, "").trim() || "Sent a new message";
+  const palettes = [
+    ["#3ddc97", "#17302a"], ["#62b6ff", "#172936"], ["#c992ff", "#2d2039"],
+    ["#f2c14e", "#352d18"], ["#ff8d72", "#38231f"], ["#67d9d0", "#173331"],
+  ];
+  const roomKey = String(room.room_id || "");
+  const index = [...roomKey].reduce((sum, char) => sum + char.charCodeAt(0), 0) % palettes.length;
+  const toast = document.createElement("div");
+  toast.className = "message-toast";
+  toast.tabIndex = 0;
+  toast.setAttribute("role", "button");
+  toast.setAttribute("aria-label", `Open message from ${sender} in ${room.title || room.room_id}`);
+  toast.style.setProperty("--toast-accent", palettes[index][0]);
+  toast.style.setProperty("--toast-bg", palettes[index][1]);
+  const avatar = document.createElement("span");
+  avatar.className = "toast-avatar";
+  avatar.textContent = sender.slice(0, 1).toUpperCase() || "?";
+  if (message.user_pic) {
+    const photo = document.createElement("img");
+    photo.src = message.user_pic;
+    photo.alt = "";
+    // If the avatar CDN fails, the initials fallback behind the image remains
+    // visible, consistent with avatars in the message list.
+    photo.onerror = () => photo.remove();
+    avatar.appendChild(photo);
+  }
+  const copy = document.createElement("span");
+  copy.className = "toast-copy";
+  const meta = document.createElement("span");
+  meta.className = "toast-meta";
+  meta.textContent = `${sender} · ${room.title || room.room_id}`;
+  const body = document.createElement("span");
+  body.className = "toast-message";
+  appendEmojiShortcodes(body, preview);
+  copy.append(meta, body);
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "toast-close";
+  close.setAttribute("aria-label", "Dismiss notification");
+  close.textContent = "×";
+  close.addEventListener("click", (event) => { event.stopPropagation(); toast.remove(); });
+  const openRoom = () => {
+    toast.remove();
+    if (room.room_id === currentRoom) jumpToLatest();
+    else selectRoom(room);
+  };
+  toast.addEventListener("click", openRoom);
+  toast.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openRoom(); } });
+  toast.append(avatar, copy, close);
+  messageToastStack.prepend(toast);
+  // Limit the stack to keep the screen usable without removing relevant recent
+  // notification bubbles.
+  while (messageToastStack.children.length > 6) messageToastStack.lastElementChild.remove();
+}
+function shouldShow(message) {
+  const matchesFilter = chatFilter.value === "all" || String(message.username || "").toLowerCase() === selfUsername.toLowerCase() || mentionsOrRepliesMe(message);
+  const query = messageSearch.value.trim().toLowerCase();
+  const matchesSearch = !query || String(message.username || "").toLowerCase().includes(query) || String(message.text || "").toLowerCase().includes(query);
+  return matchesFilter && matchesSearch;
+}
+function saveUnread() {
+  localStorage.setItem("tv-chat-unread", JSON.stringify(unreadByRoom));
+  localStorage.setItem("tv-chat-unread-start", JSON.stringify(unreadStartByRoom));
+}
+function updateJumpLatestButton() {
+  const unread = currentRoom ? Number(unreadByRoom[currentRoom] || 0) : 0;
+  const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 12;
+  jumpLatestBtn.hidden = !currentRoom || atBottom;
+  jumpLatestBtn.textContent = unread ? (unread > 99 ? "↓ 99+ new messages" : `↓ ${unread} new messages`) : "↓ Latest";
+  jumpLatestBtn.setAttribute("aria-label", unread ? `Jump to ${unread} new messages` : "Jump to latest message");
+}
+function markCurrentRoomRead() {
+  if (!currentRoom || !unreadByRoom[currentRoom]) return;
+  delete unreadByRoom[currentRoom];
+  delete unreadStartByRoom[currentRoom];
+  saveUnread();
+  messagesEl.querySelectorAll(".unread-divider").forEach((divider) => divider.remove());
+  updateJumpLatestButton();
+  loadRooms().catch(() => {});
+}
+function jumpToLatest() {
+  const selectedRoom = currentRoom;
+  // Smooth scrolling dapat dibatalkan render polling di tengah animasi. Lompat
+  // immediately, then repeat after the next layout frame to reach the latest
+  // message even when media or preview heights have not yet settled.
+  ignoreScrollUntil = performance.now() + 350;
+  const scrollToBottom = () => {
+    if (currentRoom === selectedRoom) messagesEl.scrollTop = messagesEl.scrollHeight;
+  };
+  scrollToBottom();
+  requestAnimationFrame(() => {
+    scrollToBottom();
+    markCurrentRoomRead();
+  });
+  setTimeout(scrollToBottom, 120);
+}
+jumpLatestBtn.addEventListener("click", jumpToLatest);
+// Version 2 discards old cache data that could contain a delayed room response
+// received while the user was switching rooms.
+function historyKey(roomId) { return `tv-chat-history:v2:${roomId}`; }
+function formatBytes(bytes) {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / (1024 ** index)).toFixed(index ? 1 : 0)} ${units[index]}`;
+}
+function updateCacheSize() {
+  let bytes = 0;
+  Object.keys(localStorage).filter((key) => key.startsWith("tv-chat-history:")).forEach((key) => {
+    // UTF-8 byte length, not merely the JavaScript character count.
+    bytes += new Blob([localStorage.getItem(key) || ""]).size;
+  });
+  cacheSizeEl.textContent = `cache ${formatBytes(bytes)}`;
+}
+function saveHistory() {
+  if (!currentRoom) return;
+  // Limit each room to 1,000 messages to prevent unbounded local storage use.
+  localStorage.setItem(historyKey(currentRoom), JSON.stringify(currentMessages.slice(-1000)));
+  updateCacheSize();
+}
+function loadHistory(roomId) {
+  try { const saved = JSON.parse(localStorage.getItem(historyKey(roomId)) || "[]"); return Array.isArray(saved) ? saved : []; }
+  catch (_) { return []; }
+}
+document.getElementById("clear-history").addEventListener("click", () => {
+  Object.keys(localStorage).filter((key) => key.startsWith("tv-chat-history:")).forEach((key) => localStorage.removeItem(key));
+  updateCacheSize();
+  if (currentRoom) { currentMessages = []; currentOffset = 0; hasMoreHistory = true; fetchMessages({ reset: true }); }
+});
+updateCacheSize();
+
+function setSidebarCollapsed(collapsed) {
+  document.body.classList.toggle("sidebar-collapsed", collapsed);
+  sidebarToggle.textContent = collapsed ? "›" : "‹";
+  sidebarToggle.title = collapsed ? "Show room panel" : "Hide room panel";
+  sidebarToggle.setAttribute("aria-label", sidebarToggle.title);
+  sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
+}
+
+const savedSidebarWidth = Number(localStorage.getItem("tv-chat-sidebar-width"));
+if (savedSidebarWidth >= 180 && savedSidebarWidth <= 560) {
+  document.documentElement.style.setProperty("--sidebar-width", `${savedSidebarWidth}px`);
+}
+let resizeStartX = 0;
+let resizeStartWidth = 0;
+sidebarResizer.addEventListener("pointerdown", (event) => {
+  if (document.body.classList.contains("sidebar-collapsed")) return;
+  resizeStartX = event.clientX;
+  resizeStartWidth = document.getElementById("sidebar").getBoundingClientRect().width;
+  document.body.classList.add("resizing-sidebar");
+  sidebarResizer.setPointerCapture(event.pointerId);
+  event.preventDefault();
+});
+sidebarResizer.addEventListener("pointermove", (event) => {
+  if (!document.body.classList.contains("resizing-sidebar")) return;
+  const width = Math.max(180, Math.min(560, resizeStartWidth + event.clientX - resizeStartX));
+  document.documentElement.style.setProperty("--sidebar-width", `${width}px`);
+});
+sidebarResizer.addEventListener("pointerup", () => {
+  if (!document.body.classList.contains("resizing-sidebar")) return;
+  const width = Math.round(document.getElementById("sidebar").getBoundingClientRect().width);
+  localStorage.setItem("tv-chat-sidebar-width", String(width));
+  document.body.classList.remove("resizing-sidebar");
+});
+
+sidebarToggle.addEventListener("click", () => {
+  setSidebarCollapsed(!document.body.classList.contains("sidebar-collapsed"));
+});
+
+function fmtTime(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+}
+
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+// Shortcodes supplied by the TradingView UI. Messages remain shortcodes upstream
+// so they appear native to other users; only the local view replaces them with
+// visual emoji.
+const TV_EMOJIS = {
+  ":)": "🙂", ":agree:": "👍", ":disagree:": "👎", ":okay:": "👌", ":peace:": "✌️", ":wait:": "✋", ":wave:": "👋", ":raised_hands:": "🙌", ":pray:": "🙏",
+  ":D": "😄", ":joy:": "😂", ";)": "😉", ":love:": "😍", ":P": "😛", ":flushed:": "😳", ":|": "😐", ":thinking_face:": "🤔", ":(": "☹️", ":weary:": "😩", ":'(": "😢", ":cry:": "😭", ":panic:": "😱", ":rage:": "😡", ":triumph:": "😤", ":mask:": "😷", ":shades:": "😎", ":sleepy:": "😪", "o_O": "🫤", ":halo:": "😇", ":sarcasm:": "🙄", "]:-)": "😈", ":money_mouth:": "🤑", ":zzz:": "💤",
+  ":buy:": "🟢", ":sell:": "🔴", ":profit:": "📈", ":loss:": "📉", ":uptrend:": "📈", ":downtrend:": "📉", ":bear:": "🐻", ":bull:": "🐂", ":dollar:": "💵", ":euro:": "💶", ":pound:": "💷", ":yen:": "💴", ":bitcoin:": "₿", ":ethereum:": "♦️", ":moneybag:": "💰",
+  ":cookie:": "🍪", ":coffee:": "☕", ":popcorn:": "🍿", ":cocktail:": "🍸", ":hot:": "🌶️", ":poop:": "💩", ":heart:": "❤️", ":heartbroken:": "💔", ":sun:": "☀️", ":moon:": "🌙", ":sunflower:": "🌻", ":star:": "⭐", ":sunny:": "🌞", ":partly_sunny:": "🌤️", ":cloud:": "☁️", ":zap:": "⚡", ":hammer:": "🔨", ":idea:": "💡", ":slot_machine:": "🎰", ":bullseye:": "🎯", ":rocket:": "🚀", ":inverted_rocket:": "🚀", ":checkered_flag:": "🏁", ":alarm_clock:": "⏰", ":rip:": "🪦", ":ghost:": "👻", ":up:": "🆙", ":cool:": "🆒", ":free:": "🆓", ":sos:": "🆘", ":100:": "💯", ":stop:": "🛑"
+};
+const TV_EMOJI_PATTERN = new RegExp(Object.keys(TV_EMOJIS).sort((a, b) => b.length - a.length).map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "g");
+
+function appendEmojiShortcodes(parent, value) {
+  const text = String(value || "");
+  let cursor = 0;
+  TV_EMOJI_PATTERN.lastIndex = 0;
+  let match;
+  while ((match = TV_EMOJI_PATTERN.exec(text))) {
+    if (match.index > cursor) parent.append(document.createTextNode(text.slice(cursor, match.index)));
+    const emoji = document.createElement("span");
+    emoji.textContent = TV_EMOJIS[match[0]];
+    emoji.title = match[0];
+    emoji.setAttribute("aria-label", match[0]);
+    parent.appendChild(emoji);
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < text.length || !text) parent.append(document.createTextNode(text.slice(cursor)));
+}
+
+function addTextWithEmojis(parent, value) {
+  const text = String(value || "");
+  // A @username in message content can be selected directly for a new mention
+  // without creating a quote. The leading boundary prevents email addresses
+  // from becoming mentions.
+  const appendEmojiText = (part) => appendEmojiShortcodes(parent, part);
+  const mentionPattern = /(^|[^A-Za-z0-9_])@([A-Za-z0-9_]{1,100})/g;
+  let cursor = 0;
+  let match;
+  while ((match = mentionPattern.exec(text))) {
+    const beforeMention = text.slice(cursor, match.index) + match[1];
+    if (beforeMention) appendEmojiText(beforeMention);
+    const username = match[2];
+    const mention = document.createElement("button");
+    mention.type = "button";
+    mention.className = "inline-mention";
+    mention.textContent = `@${username}`;
+    mention.title = `Mention @${username}`;
+    mention.addEventListener("click", () => mentionUser(username));
+    parent.appendChild(mention);
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < text.length || !text) appendEmojiText(text.slice(cursor));
+}
+
+// All links are clickable. Preview metadata is created only for TradingView
+// pages; URLs from other domains are never previewed automatically.
+const URL_RE = /https?:\/\/[^\s<>"']+/gi;
+function snapshotUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || !(parsed.hostname === "tradingview.com" || parsed.hostname.endsWith(".tradingview.com"))) return "";
+    // TradingView shares snapshots as either .../id or .../id.png.
+    const match = parsed.pathname.match(/^\/snapshots\/([^/]+)\/([A-Za-z0-9_-]+?)(?:_thumb)?(?:\.png)?\/?$/i);
+    if (!match) return "";
+    return `https://s3.tradingview.com/snapshots/${match[1]}/${match[2]}.png`;
+  } catch (_) { return ""; }
+}
+
+function fullSnapshotUrl(url) {
+  return snapshotUrl(url) || url.replace(/_thumb(?=\.png(?:\?|$))/i, "");
+}
+
+function openImage(url) {
+  imageModalImg.src = fullSnapshotUrl(url);
+  imageModal.classList.add("active");
+}
+
+function addSnapshot(parent, url) {
+  const img = document.createElement("img");
+  img.className = "snapshot";
+  img.src = fullSnapshotUrl(url);
+  img.alt = "Chart snapshot — click to enlarge";
+  img.loading = "lazy";
+  img.addEventListener("click", () => openImage(url));
+  parent.appendChild(img);
+}
+
+function cleanChatUrl(url) {
+  // Sentence punctuation following a URL is not part of the hyperlink.
+  return url.replace(/[.,;:!]+$/, "").replace(/\)+$/, "");
+}
+
+function isTradingViewLink(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && (parsed.hostname === "tradingview.com" || parsed.hostname.endsWith(".tradingview.com"));
+  } catch (_) { return false; }
+}
+
+function tradingViewShortSnapshot(url) {
+  try {
+    const parsed = new URL(url);
+    if (!(parsed.hostname === "tradingview.com" || parsed.hostname.endsWith(".tradingview.com"))) return "";
+    const id = parsed.pathname.match(/^\/x\/([A-Za-z0-9_-]{6,64})\/?$/i)?.[1];
+    // The /x/<id>/ short link is a native TradingView snapshot. Its image URL
+    // can render directly, avoiding reliance on page metadata or the backend
+    // preview endpoint.
+    return id ? `https://s3.tradingview.com/snapshots/${id[0].toLowerCase()}/${id}.png` : "";
+  } catch (_) { return ""; }
+}
+
+function addExternalLink(parent, url) {
+  const link = document.createElement("a");
+  link.className = "chat-link";
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = url;
+  parent.appendChild(link);
+}
+
+const previewRequests = new Map();
+function getTradingViewPreview(url) {
+  if (!previewRequests.has(url)) {
+    previewRequests.set(url, fetch(`/api/link-preview?url=${encodeURIComponent(url)}`)
+      .then((res) => res.ok ? res.json() : Promise.reject(new Error("preview unavailable"))));
+  }
+  return previewRequests.get(url);
+}
+
+function addTradingViewPreview(parent, url) {
+  const card = document.createElement("div");
+  card.className = "tv-link-preview loading";
+  card.textContent = "Loading TradingView preview…";
+  parent.appendChild(card);
+  getTradingViewPreview(url).then((preview) => {
+    card.classList.remove("loading");
+    card.textContent = "";
+    const pageLink = document.createElement("a");
+    pageLink.href = preview.url || url;
+    pageLink.target = "_blank";
+    pageLink.rel = "noopener noreferrer";
+    if (preview.image) {
+      const image = document.createElement("img");
+      image.src = preview.image;
+      image.alt = preview.title || "Preview TradingView";
+      image.loading = "lazy";
+      image.addEventListener("click", (event) => { event.preventDefault(); openImage(preview.image); });
+      pageLink.appendChild(image);
+    } else {
+      const thumbnail = document.createElement("div");
+      thumbnail.className = "preview-thumbnail";
+      thumbnail.innerHTML = "<span>TradingView</span>";
+      pageLink.appendChild(thumbnail);
+    }
+    const copy = document.createElement("div");
+    copy.className = "preview-copy";
+    const title = document.createElement("strong");
+    title.textContent = preview.title || "TradingView";
+    copy.appendChild(title);
+    if (preview.description) {
+      const description = document.createElement("small");
+      description.textContent = preview.description;
+      copy.appendChild(description);
+    }
+    pageLink.appendChild(copy);
+    card.appendChild(pageLink);
+  }).catch(() => {
+    card.classList.remove("loading");
+    card.textContent = "";
+    const pageLink = document.createElement("a");
+    pageLink.href = url;
+    pageLink.target = "_blank";
+    pageLink.rel = "noopener noreferrer";
+    pageLink.innerHTML = '<div class="preview-thumbnail"><span>TradingView</span></div><div class="preview-copy"><strong>TradingView</strong></div>';
+    card.appendChild(pageLink);
+  });
+}
+
+function addRichText(parent, value) {
+  const text = String(value || "");
+  URL_RE.lastIndex = 0;
+  let cursor = 0;
+  let match;
+  while ((match = URL_RE.exec(text))) {
+    if (match.index > cursor) addTextWithEmojis(parent, text.slice(cursor, match.index));
+    const rawUrl = match[0];
+    const url = cleanChatUrl(rawUrl);
+    const snapshot = snapshotUrl(url);
+    if (snapshot) addSnapshot(parent, snapshot);
+    else {
+      addExternalLink(parent, url);
+      const shortSnapshot = tradingViewShortSnapshot(url);
+      if (shortSnapshot) addSnapshot(parent, shortSnapshot);
+      else if (isTradingViewLink(url)) addTradingViewPreview(parent, url);
+    }
+    if (url.length < rawUrl.length) addTextWithEmojis(parent, rawUrl.slice(url.length));
+    cursor = match.index + rawUrl.length;
+  }
+  if (cursor < text.length || !text) addTextWithEmojis(parent, text.slice(cursor));
+}
+
+function extractLeadingQuote(value) {
+  const text = String(value || "");
+  const open = text.match(/^\[quote(?:="([^"]*)")?\]/i);
+  if (!open) return null;
+  const marker = /\[quote(?:=[^\]]*)?\]|\[\/quote\]/gi;
+  marker.lastIndex = open[0].length;
+  let depth = 1;
+  let match;
+  while ((match = marker.exec(text))) {
+    if (/^\[\/quote/i.test(match[0])) depth -= 1;
+    else depth += 1;
+    if (depth === 0) {
+      return { author: open[1] || "Quoted message", content: text.slice(open[0].length, match.index), reply: text.slice(marker.lastIndex).replace(/^\s+/, "") };
+    }
+  }
+  return null;
+}
+
+function addMessageContent(parent, value) {
+  const text = String(value || "");
+  // A quote is not always the first line: a message may start with a chart URL
+  // followed by [quote=...]. Locate the first quote and render preceding text
+  // first so raw BBCode is never displayed.
+  const quoteAt = /\[quote(?:=(?:"[^"]*"|[^\]]*))?\]/i.exec(text);
+  if (!quoteAt) return addRichText(parent, text);
+  if (quoteAt.index > 0) addRichText(parent, text.slice(0, quoteAt.index));
+  const quote = extractLeadingQuote(text.slice(quoteAt.index));
+  // An incomplete quote tag remains plain text so message content is not lost
+  // and this function cannot recurse indefinitely.
+  if (!quote) return addRichText(parent, text.slice(quoteAt.index));
+  const box = document.createElement("div");
+  box.className = "quoted-message";
+  const author = document.createElement("div");
+  author.className = "quote-author";
+  author.textContent = `↩ ${quote.author}`;
+  box.appendChild(author);
+  addMessageContent(box, quote.content);
+  parent.appendChild(box);
+  if (quote.reply) addMessageContent(parent, quote.reply);
+}
+
+function renderMessage(m) {
+  const div = document.createElement("div");
+  div.className = "msg";
+  div.dataset.messageId = m.id || "";
+
+  const avatar = document.createElement("img");
+  avatar.className = "avatar";
+  avatar.src = m.user_pic || "";
+  avatar.onerror = () => { avatar.style.visibility = "hidden"; };
+  div.appendChild(avatar);
+
+  const body = document.createElement("div");
+  body.className = "body";
+
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  const username = String(m.username || "Unknown").replace(/^@/, "");
+  const usernameEl = document.createElement("span");
+  usernameEl.className = "username";
+  const profileLink = document.createElement("a");
+  profileLink.href = `https://www.tradingview.com/u/${encodeURIComponent(username)}/`;
+  profileLink.target = "_blank";
+  profileLink.rel = "noopener noreferrer";
+  profileLink.textContent = `@${username}`;
+  profileLink.title = `Open @${username}'s profile`;
+  usernameEl.appendChild(profileLink);
+  meta.appendChild(usernameEl);
+
+  if (m.username) {
+    const mentionBtn = document.createElement("button");
+    mentionBtn.type = "button";
+    mentionBtn.className = "mention-user-btn";
+    mentionBtn.textContent = "@";
+    mentionBtn.title = `Mention @${username}`;
+    mentionBtn.setAttribute("aria-label", mentionBtn.title);
+    mentionBtn.addEventListener("click", () => mentionUser(username));
+    meta.appendChild(mentionBtn);
+  }
+  if (m.symbol) {
+    const symbol = document.createElement("span");
+    symbol.className = "symbol";
+    symbol.textContent = m.symbol;
+    meta.appendChild(symbol);
+  }
+  const time = document.createElement("span");
+  time.className = "time";
+  time.textContent = fmtTime(m.time);
+  meta.appendChild(time);
+  body.appendChild(meta);
+
+  if (m.text) {
+    const text = document.createElement("div");
+    text.className = "text";
+    addMessageContent(text, m.text);
+    body.appendChild(text);
+  }
+
+  if (m.meta && m.meta.type === "snapshot" && m.meta.url) {
+    addSnapshot(body, m.meta.url);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  const replyBtn = document.createElement("button");
+  replyBtn.className = "reply-btn";
+  replyBtn.textContent = "↩ Reply";
+  replyBtn.addEventListener("click", () => startReply(m));
+  actions.appendChild(replyBtn);
+  body.appendChild(actions);
+
+  div.appendChild(body);
+  return div;
+}
+
+// ===== Reply (quote) =====
+let activeQuote = null; // { username, text }
+
+const quotePreview = document.getElementById("quote-preview");
+const quoteAuthor = document.getElementById("quote-author");
+const quoteEditInput = document.getElementById("quote-edit-input");
+const quoteClearBtn = document.getElementById("quote-clear");
+const composeInput = document.getElementById("compose-input");
+const composeResize = document.getElementById("compose-resize");
+
+function installUpwardResize(handle, field, { min, max }) {
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    const startY = event.clientY;
+    const startHeight = field.getBoundingClientRect().height;
+    handle.setPointerCapture(event.pointerId);
+    const resize = (move) => {
+      // Moving upward increases height; moving downward reduces it.
+      const next = Math.max(min, Math.min(max, startHeight + startY - move.clientY));
+      field.style.height = `${next}px`;
+    };
+    const finish = () => {
+      handle.removeEventListener("pointermove", resize);
+      handle.removeEventListener("pointerup", finish);
+      handle.removeEventListener("pointercancel", finish);
+    };
+    handle.addEventListener("pointermove", resize);
+    handle.addEventListener("pointerup", finish);
+    handle.addEventListener("pointercancel", finish);
+  });
+}
+installUpwardResize(composeResize, composeInput, { min: 30, max: 260 });
+
+function fitQuoteHeight() {
+  quoteEditInput.style.height = "auto";
+  quoteEditInput.style.height = `${Math.min(quoteEditInput.scrollHeight, 220)}px`;
+}
+
+function resetComposerHeights() {
+  // Native drag-resize retains textarea height. Reset it after a reply is
+  // cancelled or sent so the composer returns to its compact default.
+  quoteEditInput.style.height = "";
+  composeInput.style.height = "auto";
+}
+
+function quoteSourceText(message) {
+  const text = String(message?.text || "").trim();
+  // Native snapshots store the image in meta.url while text can hold a caption.
+  // Include both in a quote to preserve the complete caption and image.
+  const mediaUrl = typeof message?.meta?.url === "string" ? message.meta.url.trim() : "";
+  if (!mediaUrl || text.includes(mediaUrl) || text.includes(fullSnapshotUrl(mediaUrl))) return text;
+  return text ? `${text}\n${mediaUrl}` : mediaUrl;
+}
+
+function startReply(m) {
+  // A TradingView reply starts with a quote. Remove all balanced leading quotes
+  // and retain only the new text authored by this sender.
+  const quotedText = replyTextFromMessage(quoteSourceText(m));
+  activeQuote = { username: m.username, text: quotedText };
+  quoteAuthor.textContent = `Replying to @${m.username}`;
+  quoteEditInput.value = quotedText;
+  quoteEditInput.placeholder = `Quote @${m.username}`;
+  quotePreview.classList.add("active");
+  fitQuoteHeight();
+  composeInput.focus();
+}
+
+function closingQuoteIndex(value, from) {
+  const marker = /\[quote(?:=(?:"[^"]*"|[^\]]*))?\]|\[\/quote\]/gi;
+  marker.lastIndex = from;
+  let depth = 1;
+  let match;
+  while ((match = marker.exec(value))) {
+    if (/^\[\/quote\]/i.test(match[0])) depth -= 1;
+    else depth += 1;
+    if (depth === 0) return marker.lastIndex;
+  }
+  return -1;
+}
+
+function stripLeadingQuotes(value) {
+  let result = String(value || "").trim();
+  // Read each block through its matching close. Searching for the first close
+  // fails for nested quotes and leaves BBCode that would be resent as a nested
+  // quote.
+  while (/^\[quote(?:=(?:"[^"]*"|[^\]]*))?\]/i.test(result)) {
+    const open = result.match(/^\[quote(?:=(?:"[^"]*"|[^\]]*))?\]/i);
+    const end = closingQuoteIndex(result, open[0].length);
+    if (end === -1) break;
+    result = result.slice(end).replace(/^\s+/, "");
+  }
+  return result;
+}
+
+function replyTextFromMessage(value) {
+  const text = String(value || "").trim();
+  const ownText = stripLeadingQuotes(text);
+  if (ownText) return ownText;
+  // When a source message contains only a quote and no new comment, use the
+  // innermost content as a fallback without copying quote tags into the reply.
+  let quote = extractLeadingQuote(text);
+  while (quote) {
+    const nested = extractLeadingQuote(quote.content);
+    if (!nested) return quote.content.trim();
+    quote = nested;
+  }
+  return "";
+}
+
+quoteClearBtn.addEventListener("click", () => {
+  activeQuote = null;
+  quoteAuthor.textContent = "";
+  quoteEditInput.value = "";
+  quotePreview.classList.remove("active");
+  resetComposerHeights();
+});
+quoteEditInput.addEventListener("input", fitQuoteHeight);
+
+const emojiPicker = document.getElementById("emoji-picker");
+const emojiPickerHead = document.createElement("div");
+emojiPickerHead.className = "picker-head";
+emojiPickerHead.innerHTML = '<span>Emoji</span><button class="picker-close" type="button" aria-label="Close emoji picker">×</button>';
+emojiPickerHead.querySelector("button").addEventListener("click", () => emojiPicker.classList.remove("active"));
+emojiPicker.appendChild(emojiPickerHead);
+Object.entries(TV_EMOJIS).forEach(([shortcode, visual]) => {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = visual;
+  button.title = shortcode;
+  button.setAttribute("aria-label", shortcode);
+  button.addEventListener("click", () => {
+    const pos = composeInput.selectionStart;
+    composeInput.setRangeText(shortcode, pos, composeInput.selectionEnd, "end");
+    emojiPicker.classList.remove("active");
+    composeInput.focus();
+  });
+  emojiPicker.appendChild(button);
+});
+document.getElementById("emoji-btn").addEventListener("click", () => emojiPicker.classList.toggle("active"));
+document.addEventListener("pointerdown", (event) => {
+  if (!emojiPicker.contains(event.target) && event.target !== document.getElementById("emoji-btn")) emojiPicker.classList.remove("active");
+});
+
+// Build the outbound string, including a [quote=...] block when a reply is active.
+function buildOutgoingText(raw) {
+  if (!activeQuote) return raw;
+  return `[quote="${activeQuote.username}"]${quoteEditInput.value.trim()}[/quote]\n${raw}`;
+}
+
+// ===== @mention autocomplete =====
+const mentionDropdown = document.getElementById("mention-dropdown");
+let knownUsernames = JSON.parse(localStorage.getItem("tv-chat-known-usernames") || "[]")
+  .filter((username) => typeof username === "string" && username.length <= 100); // direktori lintas-room
+let mentionHighlightIdx = -1;
+
+function collectUsernames(messages) {
+  const set = new Set(knownUsernames);
+  messages.forEach((m) => { if (m.username) set.add(m.username); });
+  // The bound keeps local storage small while retaining enough entries for
+  // global autocomplete across background-monitored rooms.
+  knownUsernames = [...set].sort((a, b) => a.localeCompare(b)).slice(-5000);
+  localStorage.setItem("tv-chat-known-usernames", JSON.stringify(knownUsernames));
+}
+
+function getMentionQuery() {
+  const val = composeInput.value;
+  const pos = composeInput.selectionStart;
+  const uptoCursor = val.slice(0, pos);
+  const match = uptoCursor.match(/@([a-zA-Z0-9_]*)$/);
+  return match ? match[1] : null;
+}
+
+function renderMentionDropdown(query) {
+  const matches = knownUsernames
+    .filter((u) => u.toLowerCase().startsWith(query.toLowerCase()))
+    .slice(0, 8);
+
+  if (matches.length === 0) {
+    mentionDropdown.classList.remove("active");
+    mentionDropdown.innerHTML = "";
+    return;
+  }
+
+  mentionHighlightIdx = 0;
+  mentionDropdown.innerHTML = matches
+    .map((u, i) => `<div class="item${i === 0 ? " highlighted" : ""}" data-username="${escapeHtml(u)}">@${escapeHtml(u)}</div>`)
+    .join("");
+  mentionDropdown.classList.add("active");
+
+  [...mentionDropdown.children].forEach((el) => {
+    el.addEventListener("click", () => applyMention(el.dataset.username));
+  });
+}
+
+function applyMention(username) {
+  const val = composeInput.value;
+  const pos = composeInput.selectionStart;
+  const uptoCursor = val.slice(0, pos);
+  const replaced = uptoCursor.replace(/@([a-zA-Z0-9_]*)$/, `@${username} `);
+  composeInput.value = replaced + val.slice(pos);
+  mentionDropdown.classList.remove("active");
+  composeInput.focus();
+}
+
+function mentionUser(username) {
+  const cleanUsername = String(username || "").replace(/^@/, "").trim();
+  if (!cleanUsername) return;
+  const pos = composeInput.selectionStart;
+  const before = composeInput.value.slice(0, pos);
+  const prefix = before && !/\s$/.test(before) ? " " : "";
+  composeInput.setRangeText(`${prefix}@${cleanUsername} `, pos, composeInput.selectionEnd, "end");
+  mentionDropdown.classList.remove("active");
+  composeInput.style.height = "auto";
+  composeInput.style.height = Math.min(composeInput.scrollHeight, 260) + "px";
+  composeInput.focus();
+}
+
+composeInput.addEventListener("input", () => {
+  const q = getMentionQuery();
+  if (q !== null) {
+    renderMentionDropdown(q);
+  } else {
+    mentionDropdown.classList.remove("active");
+  }
+  // auto-grow textarea
+  composeInput.style.height = "auto";
+  composeInput.style.height = Math.min(composeInput.scrollHeight, 260) + "px";
+});
+
+composeInput.addEventListener("keydown", (e) => {
+  const items = [...mentionDropdown.children];
+  if (mentionDropdown.classList.contains("active") && items.length) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      mentionHighlightIdx = (mentionHighlightIdx + 1) % items.length;
+      items.forEach((it, i) => it.classList.toggle("highlighted", i === mentionHighlightIdx));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      mentionHighlightIdx = (mentionHighlightIdx - 1 + items.length) % items.length;
+      items.forEach((it, i) => it.classList.toggle("highlighted", i === mentionHighlightIdx));
+      return;
+    }
+    if (e.key === "Enter" || e.key === "Tab") {
+      e.preventDefault();
+      applyMention(items[mentionHighlightIdx].dataset.username);
+      return;
+    }
+    if (e.key === "Escape") {
+      mentionDropdown.classList.remove("active");
+      return;
+    }
+  }
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// ===== Send =====
+const sendBtn = document.getElementById("send-btn");
+const sendNote = document.getElementById("send-note");
+const symbolInput = document.getElementById("symbol-input");
+const captureState = document.getElementById("capture-state");
+const captureReview = document.getElementById("capture-review");
+const captureReviewImage = document.getElementById("capture-review-image");
+const imageModal = document.getElementById("image-modal");
+const imageModalImg = document.getElementById("image-modal-img");
+const imageModalClose = document.getElementById("image-modal-close");
+
+function closeImage() {
+  imageModal.classList.remove("active");
+  imageModalImg.removeAttribute("src");
+}
+imageModal.addEventListener("click", (event) => { if (event.target === imageModal) closeImage(); });
+imageModalClose.addEventListener("click", closeImage);
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (captureReview?.classList.contains("active")) clearCapture();
+  else closeImage();
+});
+
+let pendingCapture = null;
+let captureCandidate = null;
+function clearCapture() {
+  pendingCapture = null;
+  captureCandidate = null;
+  captureState.textContent = "";
+  captureState.classList.remove("active");
+  captureReview.classList.remove("active");
+  captureReviewImage.removeAttribute("src");
+}
+function renderCaptureApproval() {
+  captureReviewImage.src = captureCandidate;
+  captureReview.classList.add("active");
+}
+document.getElementById("capture-use").addEventListener("click", () => {
+  if (!captureCandidate) return;
+  pendingCapture = captureCandidate;
+  captureCandidate = null;
+  captureReview.classList.remove("active");
+  captureReviewImage.removeAttribute("src");
+  captureState.innerHTML = `<img src="${pendingCapture}" alt="Chart capture attachment" title="Click to preview"><span class="capture-copy">Chart capture attached<br><span class="capture-preview-hint">Click thumbnail to preview</span></span><button type="button" class="capture-remove">Remove</button>`;
+  captureState.classList.add("active");
+  captureState.querySelector("img").addEventListener("click", () => openImage(pendingCapture));
+  captureState.querySelector(".capture-remove").addEventListener("click", clearCapture);
+});
+document.getElementById("capture-delete").addEventListener("click", clearCapture);
+document.getElementById("capture-review-close").addEventListener("click", clearCapture);
+captureReview.addEventListener("click", (event) => { if (event.target === captureReview) clearCapture(); });
+symbolInput.value = localStorage.getItem("tv-chat-symbol") || "";
+symbolInput.addEventListener("change", () => localStorage.setItem("tv-chat-symbol", symbolInput.value.trim()));
+
+// The browser requires the user to select a tab or window; a localhost page
+// cannot silently read a TradingView tab. Once selected, the PNG is uploaded
+// through the TradingView snapshot endpoint when the user sends it.
+document.getElementById("capture-btn").addEventListener("click", async () => {
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    sendNote.textContent = "This browser does not support tab capture.";
+    sendNote.classList.add("error");
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    const video = document.createElement("video");
+    video.srcObject = stream;
+    await video.play();
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    stream.getTracks().forEach((track) => track.stop());
+    captureCandidate = canvas.toDataURL("image/png");
+    pendingCapture = null;
+    renderCaptureApproval();
+    sendNote.textContent = "";
+    sendNote.classList.remove("error");
+  } catch (error) {
+    if (error.name !== "NotAllowedError") {
+      sendNote.textContent = "Could not create the capture.";
+      sendNote.classList.add("error");
+    }
+  }
+});
+
+async function sendMessage() {
+  const raw = composeInput.value.trim();
+  if ((!raw && !pendingCapture) || !currentRoom) return;
+
+  const text = buildOutgoingText(raw);
+  const symbol = symbolInput.value.trim();
+  sendBtn.disabled = true;
+  sendNote.textContent = pendingCapture ? "Uploading snapshot…" : "Sending…";
+  sendNote.classList.remove("error");
+
+  try {
+    let snapshot = null;
+    if (pendingCapture) {
+      const snapshotRes = await fetch("/api/snapshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: pendingCapture, symbol, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+      });
+      const snapshotData = await snapshotRes.json();
+      if (!snapshotRes.ok) throw new Error(snapshotData.error || "Could not upload the snapshot.");
+      snapshot = snapshotData.snapshot;
+      sendNote.textContent = "Sending message…";
+    }
+    const res = await fetch("/api/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_id: currentRoom, text, symbol, snapshot }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      sendNote.textContent = data.error || "Could not send the message.";
+      sendNote.classList.add("error");
+      return;
+    }
+
+    composeInput.value = "";
+    resetComposerHeights();
+    clearCapture();
+    activeQuote = null;
+    quoteAuthor.textContent = "";
+    quoteEditInput.value = "";
+    quotePreview.classList.remove("active");
+    sendNote.textContent = "";
+    fetchMessages();
+  } catch (e) {
+    sendNote.textContent = "Connection to the backend failed.";
+    sendNote.classList.add("error");
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
+
+sendBtn.addEventListener("click", sendMessage);
+
+async function loadRooms() {
+  const res = await fetch("/api/rooms");
+  const payload = await res.json();
+  // Older servers return the public array directly; current servers return
+  // { public, private }. Accept both so the UI remains available until Node is
+  // restarted after an upgrade.
+  const groups = Array.isArray(payload) ? { public: payload, private: [] } : payload;
+  // Inbox unread counts are a server snapshot. Seed only rooms not yet opened
+  // in this browser; thereafter local state is authoritative so badges do not
+  // reappear after a room has been read.
+  [...(groups.public || []), ...(groups.private || [])].forEach((room) => {
+    if (!visitedRoomIds.has(room.room_id) && !unreadByRoom[room.room_id] && Number(room.unread || 0)) {
+      unreadByRoom[room.room_id] = Number(room.unread);
+    }
+  });
+  saveUnread();
+  const allRooms = [...(groups.public || []), ...(groups.private || [])];
+  roomsById = new Map(allRooms.map((room) => [room.room_id, room]));
+  roomListEl.innerHTML = "";
+  const sortRoomsByActivity = (sourceRooms) => sourceRooms.slice().sort((a, b) => {
+      const activityOrder = Number(roomActivity[b.room_id] || 0) - Number(roomActivity[a.room_id] || 0);
+      if (activityOrder) return activityOrder;
+      return sourceRooms.indexOf(a) - sourceRooms.indexOf(b);
+    });
+  const renderRoomSection = (key, label, sourceRooms) => {
+    const rooms = sortRoomsByActivity(sourceRooms);
+    const heading = document.createElement("li");
+    heading.className = `room-section-header ${key}-section`;
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "room-section-toggle";
+    const updateToggle = () => {
+      const collapsed = collapsedSections.has(key);
+      const sectionUnread = rooms.reduce((total, room) => total + Number(unreadByRoom[room.room_id] || 0), 0);
+      toggle.innerHTML = `<span>${escapeHtml(label)}${sectionUnread ? ` <span class="section-badge">${sectionUnread > 99 ? "99+" : sectionUnread}</span>` : ""}</span><span>${collapsed ? "›" : "⌄"}</span>`;
+      toggle.setAttribute("aria-expanded", String(!collapsed));
+      [...roomListEl.querySelectorAll(`[data-section="${key}"]`)].forEach((entry) => entry.classList.toggle("section-hidden", collapsed));
+    };
+    toggle.addEventListener("click", () => {
+      if (collapsedSections.has(key)) collapsedSections.delete(key); else collapsedSections.add(key);
+      localStorage.setItem("tv-chat-collapsed-sections", JSON.stringify([...collapsedSections]));
+      updateToggle();
+    });
+    heading.appendChild(toggle);
+    roomListEl.appendChild(heading);
+    rooms.forEach((r) => {
+    const li = document.createElement("li");
+    li.classList.add("room-entry");
+    if (r.room_id === currentRoom) li.classList.add("active");
+    li.dataset.section = key;
+    li.dataset.roomId = r.room_id;
+    const unread = Number(unreadByRoom[r.room_id] || 0);
+    li.innerHTML = `<button class="room-star${favoriteRoomIds.has(r.room_id) ? " active" : ""}" type="button" aria-label="${favoriteRoomIds.has(r.room_id) ? "Remove from favorites" : "Add to favorites"}" title="Favorite room">★</button><span class="room-title">${escapeHtml(r.title)}</span>${unread ? `<span class="room-badge">${unread > 99 ? "99+" : unread}</span>` : ""}`;
+    li.querySelector(".room-star").addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (favoriteRoomIds.has(r.room_id)) favoriteRoomIds.delete(r.room_id); else favoriteRoomIds.add(r.room_id);
+      localStorage.setItem("tv-chat-favorite-rooms", JSON.stringify([...favoriteRoomIds]));
+      loadRooms().catch(() => {});
+    });
+    li.addEventListener("click", () => selectRoom(r));
+    roomListEl.appendChild(li);
+    });
+    updateToggle();
+  };
+  // Favourites are mirrored: rooms remain rendered in their original category.
+  renderRoomSection("favorites", "Favorites", allRooms.filter((room) => favoriteRoomIds.has(room.room_id)));
+  renderRoomSection("public", "Public chat", groups.public || []);
+  renderRoomSection("private", "Private chat", groups.private || []);
+}
+
+function setActiveLi(roomId) {
+  [...roomListEl.children].forEach((li) => {
+    li.classList.toggle("active", li.dataset.roomId === roomId);
+  });
+}
+
+function selectRoom(room) {
+  roomLoadGeneration += 1;
+  loadingOlder = false;
+  currentRoom = room.room_id;
+  visitedRoomIds.add(room.room_id);
+  localStorage.setItem("tv-chat-visited-rooms", JSON.stringify([...visitedRoomIds]));
+  renderedIds = new Set();
+  currentMessages = loadHistory(room.room_id);
+  currentOffset = currentMessages.length;
+  hasMoreHistory = true;
+  updateJumpLatestButton();
+  setActiveLi(room.room_id);
+  roomTitleEl.textContent = room.title;
+  messagesEl.innerHTML = "";
+  statusEl.textContent = "loading…";
+  statusEl.classList.remove("error");
+
+  if (pollTimer) clearInterval(pollTimer);
+  loadRooms().catch(() => {});
+  if (currentMessages.length) {
+    renderCurrentMessages({ scrollToLatest: true });
+    markCurrentRoomRead();
+  }
+  fetchMessages({ reset: true });
+  pollTimer = setInterval(fetchMessages, POLL_MS);
+}
+
+function captureScrollAnchor() {
+  const viewportTop = messagesEl.getBoundingClientRect().top;
+  const anchor = [...messagesEl.querySelectorAll(".msg")].find((message) => message.getBoundingClientRect().bottom > viewportTop);
+  return anchor ? { id: anchor.dataset.messageId, offset: anchor.getBoundingClientRect().top - viewportTop } : null;
+}
+
+function restoreScrollAnchor(anchor) {
+  if (!anchor?.id) return;
+  const target = [...messagesEl.querySelectorAll(".msg")].find((message) => message.dataset.messageId === anchor.id);
+  if (!target) return;
+  const offset = target.getBoundingClientRect().top - messagesEl.getBoundingClientRect().top;
+  messagesEl.scrollTop += offset - anchor.offset;
+}
+
+function renderCurrentMessages({ preserveScroll = false, scrollToLatest = true } = {}) {
+  ignoreScrollUntil = performance.now() + 120;
+  const before = messagesEl.scrollHeight - messagesEl.scrollTop;
+  const anchor = preserveScroll ? captureScrollAnchor() : null;
+  messagesEl.innerHTML = "";
+  const shown = currentMessages.filter(shouldShow);
+  if (hasMoreHistory) {
+    const older = document.createElement("button");
+    older.id = "load-older";
+    older.type = "button";
+    older.textContent = loadingOlder ? "Loading older messages…" : "Load older messages";
+    older.disabled = loadingOlder;
+    older.addEventListener("click", loadOlderMessages);
+    messagesEl.appendChild(older);
+  }
+  if (!shown.length) messagesEl.innerHTML += '<div id="empty-state">No messages match this filter.</div>';
+  const unreadCount = currentRoom ? Number(unreadByRoom[currentRoom] || 0) : 0;
+  // A room without a stored initial ID (for example, unread state from an old
+  // session) uses a count-based position as a one-time fallback.
+  const fallbackStart = unreadCount ? currentMessages[Math.max(0, currentMessages.length - unreadCount)]?.id : "";
+  const unreadStartId = currentRoom ? (unreadStartByRoom[currentRoom] || fallbackStart) : "";
+  shown.forEach((message) => {
+    if (unreadStartId && String(message.id) === String(unreadStartId)) {
+      const divider = document.createElement("div");
+      divider.className = "unread-divider";
+      divider.textContent = "New messages";
+      messagesEl.appendChild(divider);
+    }
+    renderedIds.add(message.id);
+    messagesEl.appendChild(renderMessage(message));
+  });
+  if (preserveScroll) {
+    if (anchor) {
+      restoreScrollAnchor(anchor);
+      // Image/link previews can settle just after the DOM render. Restore the
+      // same message anchor once more so loading older history never jolts the
+      // message the user was reading.
+      requestAnimationFrame(() => restoreScrollAnchor(anchor));
+    } else messagesEl.scrollTop = Math.max(0, messagesEl.scrollHeight - before);
+  }
+  else messagesEl.scrollTop = scrollToLatest ? messagesEl.scrollHeight : 0;
+  updateJumpLatestButton();
+}
+
+async function fetchMessages({ reset = false } = {}) {
+  if (!currentRoom) return;
+  const roomId = currentRoom;
+  const generation = roomLoadGeneration;
+  try {
+    const notificationRoom = roomsById.get(roomId)?.is_notification_room ? "&notification_room=1" : "";
+    const res = await fetch(`/api/messages/${encodeURIComponent(roomId)}?offset=0${notificationRoom}`);
+    const data = await res.json();
+
+    // Never use a stale room response after the user has switched rooms.
+    if (generation !== roomLoadGeneration || roomId !== currentRoom) return;
+
+    if (!res.ok) {
+      statusEl.textContent = data.code === "SESSION_EXPIRED"
+        ? "session expired — update .env"
+        : "failed to load";
+      statusEl.classList.add("error");
+      return;
+    }
+
+    statusEl.classList.remove("error");
+    statusEl.textContent = `live · updates every ${POLL_MS / 1000}s · ${data.messages.length}+ messages`;
+    collectUsernames(data.messages);
+    // The open room is visible to the user. Store its latest marker so background
+    // polling does not count older messages as unread after a room switch.
+    const latestMessage = data.messages[data.messages.length - 1];
+    if (latestMessage?.id) {
+      roomLatestIds[roomId] = latestMessage.id;
+      localStorage.setItem("tv-chat-room-latest", JSON.stringify(roomLatestIds));
+    }
+    const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 60;
+    const oldIds = new Set(currentMessages.map((m) => m.id));
+    const additions = reset ? [] : data.messages.filter((m) => !oldIds.has(m.id));
+    const room = roomsById.get(roomId);
+    additions.forEach((message) => processIncomingMessage(room, message, { countUnread: true }));
+    if (additions.length) loadRooms().catch(() => {});
+    if (additions.length && !atBottom) {
+      if (!unreadStartByRoom[roomId]) unreadStartByRoom[roomId] = additions[0]?.id || "";
+      unreadByRoom[roomId] = Number(unreadByRoom[roomId] || 0) + additions.length;
+      saveUnread();
+    }
+    // Retain prior cache entries; offset=0 replaces only the latest page. This
+    // prevents pagination from disappearing on each poll.
+    const mergedMessages = [...currentMessages.filter((m) => !data.messages.some((latest) => latest.id === m.id)), ...data.messages]
+      .sort((a, b) => new Date(a.time) - new Date(b.time));
+    const contentChanged = reset || additions.length || mergedMessages.length !== currentMessages.length;
+    currentMessages = mergedMessages;
+    currentOffset = currentMessages.length;
+    saveHistory();
+    // A poll with no new messages does not alter the DOM or scroll position,
+    // eliminating flicker and subtle jumps on each five-second refresh.
+    if (contentChanged) renderCurrentMessages({ preserveScroll: !atBottom && !reset, scrollToLatest: true });
+    if (reset) markCurrentRoomRead();
+  } catch (e) {
+    if (generation !== roomLoadGeneration || roomId !== currentRoom) return;
+    statusEl.textContent = "backend connection failed";
+    statusEl.classList.add("error");
+  }
+}
+
+async function loadOlderMessages() {
+  if (!currentRoom || loadingOlder || !hasMoreHistory) return;
+  const roomId = currentRoom;
+  const generation = roomLoadGeneration;
+  loadingOlder = true;
+  renderCurrentMessages({ preserveScroll: true });
+  const nextOffset = currentMessages.length;
+  try {
+    const notificationRoom = roomsById.get(roomId)?.is_notification_room ? "&notification_room=1" : "";
+    const res = await fetch(`/api/messages/${encodeURIComponent(roomId)}?offset=${nextOffset}${notificationRoom}`);
+    const data = await res.json();
+    if (generation !== roomLoadGeneration || roomId !== currentRoom) return;
+    if (!res.ok) return;
+    const known = new Set(currentMessages.map((m) => m.id));
+    const older = data.messages.filter((m) => !known.has(m.id));
+    if (!older.length) { hasMoreHistory = false; statusEl.textContent = "You have reached the oldest available TradingView history."; return; }
+    currentMessages = [...older, ...currentMessages].sort((a, b) => new Date(a.time) - new Date(b.time));
+    currentOffset = currentMessages.length;
+    collectUsernames(currentMessages);
+    saveHistory();
+  } finally {
+    loadingOlder = false;
+    if (generation === roomLoadGeneration && roomId === currentRoom) renderCurrentMessages({ preserveScroll: true });
+  }
+}
+
+messagesEl.addEventListener("scroll", () => {
+  const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 12;
+  if (atBottom) markCurrentRoomRead();
+  updateJumpLatestButton();
+  if (performance.now() >= ignoreScrollUntil && messagesEl.scrollTop <= 4) loadOlderMessages();
+});
+
+async function navigateToNotification(item) {
+  if (!item.room_id) return;
+  // A notification can originate in a public room not pinned in the sidebar.
+  // Create a temporary entry so clicking the notification can still open it.
+  let room = roomsById.get(item.room_id);
+  if (!room && /^[A-Za-z0-9_-]{1,100}$/.test(item.room_id) && !item.room_id.startsWith("pm_")) {
+    room = { room_id: item.room_id, title: item.room_title || `Public chat · ${item.room_id}`, short: item.room_id, is_notification_room: true };
+    roomsById.set(room.room_id, room);
+  }
+  if (!room) return;
+  notificationModal.classList.remove("active");
+  item.read = true;
+  saveNotificationRecords();
+  selectRoom(room);
+  // Message content is stored in local storage when a notification is detected.
+  // There is no need to search or scroll old history; prepare a quote reply.
+  startReply({ username: item.username, text: item.reply_text || item.message_text });
+}
+
+// Native new-message delivery for unopened rooms uses a public/private WebSocket
+// feed. That feed is not a stable HTTP API, so this viewer uses conservative
+// 20-second polling to preserve badges without requiring users to open each room.
+async function refreshUnreadRooms() {
+  const roomIds = [...roomsById.keys()].filter((id) => id !== currentRoom);
+  for (let i = 0; i < roomIds.length; i += 4) {
+    const batch = roomIds.slice(i, i + 4);
+    await Promise.all(batch.map(async (roomId) => {
+      try {
+        const res = await fetch(`/api/messages/${encodeURIComponent(roomId)}?offset=0`);
+        const data = await res.json();
+        if (!res.ok || !data.messages?.length) return;
+        // This background feed covers every room, so use it as the global
+        // mention directory rather than only the currently open room.
+        collectUsernames(data.messages);
+        const latest = data.messages[data.messages.length - 1];
+        const previous = roomLatestIds[roomId];
+        let additions = [];
+        if (roomWatchPrimed && previous && previous !== latest.id) {
+          const position = data.messages.findIndex((message) => message.id === previous);
+          additions = position >= 0 ? data.messages.slice(position + 1) : [latest];
+          if (!unreadStartByRoom[roomId]) unreadStartByRoom[roomId] = additions[0]?.id || "";
+          unreadByRoom[roomId] = Number(unreadByRoom[roomId] || 0) + additions.length;
+        }
+        // Bootstrap inspects the latest page once, then only new messages. This
+        // ensures local notifications retain both room and message content.
+        const messagesToInspect = roomWatchPrimed ? additions : data.messages;
+        const room = roomsById.get(roomId);
+        messagesToInspect.forEach((message) => processIncomingMessage(room, message, { countUnread: roomWatchPrimed }));
+        roomLatestIds[roomId] = latest.id;
+      } catch (_) { }
+    }));
+  }
+  roomWatchPrimed = true;
+  localStorage.setItem("tv-chat-room-latest", JSON.stringify(roomLatestIds));
+  localStorage.setItem("tv-chat-room-watch-primed", "1");
+  saveUnread();
+  loadRooms().catch(() => {});
+}
+
+function extractNotifications(value, output = [], inheritedId = null) {
+  if (Array.isArray(value)) value.forEach((item) => extractNotifications(item, output, inheritedId));
+  else if (value && typeof value === "object") {
+    const data = notificationData(value);
+    const id = value.id ?? inheritedId;
+    const type = String(value.type || data.type || "").toLowerCase();
+    // Some responses place the ID on a wrapper and `type` deep in data; retain
+    // the wrapper ID while traversing nested objects.
+    if (id != null && (type.includes("mention") || type.includes("reply"))) {
+      output.push({ ...notificationData(value), id: String(id), type, raw: value });
+    }
+    Object.values(value).forEach((item) => extractNotifications(item, output, id));
+  }
+  return output;
+}
+async function pollNotifications() {
+  try {
+    const res = await fetch("/api/notifications");
+    const data = await res.json();
+    const itemsById = new Map();
+    extractNotifications(data).forEach((item) => {
+      const previous = itemsById.get(String(item.id));
+      const score = Number(Boolean(item.room_id)) + Number(Boolean(item.username)) + Number(Boolean(item.text));
+      const previousScore = previous ? Number(Boolean(previous.room_id)) + Number(Boolean(previous.username)) + Number(Boolean(previous.text)) : -1;
+      if (!previous || score > previousScore) itemsById.set(String(item.id), item);
+    });
+    // For some accounts, the native endpoint contains only sender and time. Do
+    // not store it as a reply notification when room or text is incomplete;
+    // recordChatNotification() above retains the complete feed version.
+    const items = [...itemsById.values()].filter((item) => item.room_id && item.username && item.text);
+    const fresh = items.filter((item) => !notificationIds.has(String(item.id)));
+    if (fresh.length) {
+      notificationUnread += fresh.length;
+      localStorage.setItem("tv-chat-notification-unread", String(notificationUnread));
+      renderNotificationBadge();
+      if (notificationIds.size) {
+        const audio = new Audio("/sounds/mention.mp3");
+        audio.play().catch(() => {});
+      }
+    }
+    // Replace older records with the latest payload. This corrects notifications
+    // previously stored without room_id because of API structure variation.
+    const recordsById = new Map(notificationRecords.map((item) => [String(item.id), item]));
+    items.forEach((item) => recordsById.set(String(item.id), item));
+    notificationRecords = [...recordsById.values()].slice(-300);
+    items.forEach((item) => notificationIds.add(String(item.id)));
+    localStorage.setItem("tv-chat-notification-ids", JSON.stringify([...notificationIds].slice(-500)));
+    localStorage.setItem("tv-chat-notification-records", JSON.stringify(notificationRecords));
+    const unseen = fresh.length;
+    const title = unseen ? `(${unseen}) Public Chat Viewer` : "Public Chat Viewer";
+    document.title = title;
+  } catch (_) { /* Local badges continue functioning when the notification endpoint fails. */ }
+}
+
+Promise.all([fetch("/api/config").then((r) => r.json()), loadRooms()]).then(([config]) => {
+  selfUsername = config.username || "";
+  // TradingView onsite notifications do not consistently provide chat content
+  // or room information. The local chat feed retained through refreshUnreadRooms()
+  // is the single source for replyable notification records.
+  refreshUnreadRooms();
+  setInterval(refreshUnreadRooms, 20_000);
+});
+</script>
+</body>
+</html>
