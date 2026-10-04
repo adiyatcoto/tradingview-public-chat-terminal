@@ -106,10 +106,11 @@
     margin: 0;
     padding: 8px;
     overflow-y: auto;
+    overflow-x: hidden;
     flex: 1;
   }
   #room-list li {
-    padding: 9px 10px;
+    padding: 8px 10px;
     border-radius: 6px;
     cursor: pointer;
     font-size: 13px;
@@ -128,7 +129,7 @@
     font-weight: 700;
   }
   #room-list li.active .room-title { color: #eafff4; }
-  #room-list li .room-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 0 1 auto; }
+  #room-list li .room-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; font-weight: 600; }
   #room-list li .room-id {
     font-size: 10px;
     color: var(--text-dim);
@@ -139,12 +140,90 @@
     min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px;
     background: #df4d4d; color: white; font: 700 10px/17px inherit; text-align: center; flex-shrink: 0;
   }
-  .room-star { appearance: none; border: 0; padding: 0 2px; background: transparent; color: #65706f; font: 17px/1 inherit; cursor: pointer; flex: 0 0 auto; }
+  .room-star { appearance: none; border: 0; padding: 0 2px; background: transparent; color: #65706f; font: 16px/1 inherit; cursor: pointer; flex: 0 0 auto; }
   .room-star:hover, .room-star.active { color: #f2c14e; }
   #room-list li.room-section-header { padding: 10px 4px 4px; margin: 0; }
   /* Rooms are children of Public/Private categories: retain stable indentation
      without separating the dot and badge from the room name. */
-  #room-list li.room-entry { margin-left: 12px; width: calc(100% - 12px); padding-left: 12px; }
+  #room-list li.room-entry {
+    margin-left: 10px;
+    width: calc(100% - 10px);
+    padding: 7px 8px;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  #room-list li.room-entry .room-star {
+    margin-top: 1px;
+    flex-shrink: 0;
+  }
+  .room-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .room-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 6px;
+    width: 100%;
+  }
+  .room-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+  #room-list li.active .room-title { color: #eafff4; }
+  .room-time {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    flex-shrink: 0;
+    white-space: nowrap;
+    cursor: default;
+  }
+  #room-list li.active .room-time { color: #a7eec4; }
+  .room-snippet-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 16px;
+  }
+  .room-snippet {
+    font-size: 11px;
+    line-height: 1.3;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+  .room-last-user {
+    font-weight: 600;
+    color: #88b4ce;
+    margin-right: 2px;
+  }
+  #room-list li.active .room-last-user { color: #b3ffda; }
+  .room-last-text {
+    color: #92a2a0;
+  }
+  #room-list li.active .room-last-text { color: #d1f4e0; }
+  .room-last-empty {
+    font-style: italic;
+    color: #556664;
+    font-size: 10.5px;
+  }
+  #room-list li.active .room-last-empty { color: #7fa895; }
   .room-section-toggle {
     width: 100%; display: flex; justify-content: space-between; align-items: center;
     padding: 3px 6px; color: var(--text-dim); background: none; border: 0;
@@ -168,6 +247,8 @@
     flex-direction: column;
     height: 100vh;
     position: relative;
+    min-width: 0;
+    overflow-x: hidden;
   }
   body.mine-filter #messages { background: #351521; }
   body.mine-filter #compose-wrap { background: #281019; }
@@ -251,21 +332,58 @@
   #messages {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 16px 24px;
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-width: 0;
   }
   .msg {
     display: flex;
     gap: 10px;
+    border-radius: 8px;
+    padding: 4px 8px;
+    max-width: 100%;
+    box-sizing: border-box;
+    transition: background-color 0.4s ease, box-shadow 0.4s ease;
   }
   .msg.system-msg {
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 2px 0;
+    margin: 0;
     gap: 0;
+  }
+  .msg.msg-highlighted,
+  .msg.highlighted {
+    background: rgba(61, 220, 151, 0.16);
+    box-shadow: 0 0 0 2px rgba(61, 220, 151, 0.55), 0 0 20px rgba(61, 220, 151, 0.2);
+    animation: msg-glow 3.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .msg.system-msg.msg-highlighted .system-pill,
+  .msg.system-msg.highlighted .system-pill {
+    box-shadow: 0 0 0 2px var(--accent), 0 0 16px rgba(61, 220, 151, 0.4);
+    border-color: var(--accent);
+  }
+  @keyframes msg-glow {
+    0% {
+      background: rgba(61, 220, 151, 0.35);
+      box-shadow: 0 0 0 2px rgba(61, 220, 151, 0.75), 0 0 24px rgba(61, 220, 151, 0.4);
+    }
+    30% {
+      background: rgba(61, 220, 151, 0.22);
+      box-shadow: 0 0 0 2px rgba(61, 220, 151, 0.55), 0 0 16px rgba(61, 220, 151, 0.25);
+    }
+    80% {
+      background: rgba(61, 220, 151, 0.08);
+      box-shadow: 0 0 0 1px rgba(61, 220, 151, 0.2);
+    }
+    100% {
+      background: transparent;
+      box-shadow: none;
+    }
   }
   .system-pill {
     display: inline-flex;
@@ -337,6 +455,7 @@
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: 10px;
     margin-left: 2px;
+    cursor: default;
   }
   .msg .text.text-empty {
     color: var(--text-dim);
@@ -378,6 +497,7 @@
     color: var(--text-dim);
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: 10.5px;
+    cursor: default;
   }
   .msg .symbol {
     color: var(--accent);
@@ -399,6 +519,12 @@
     margin: 5px 0 7px; padding: 6px 9px; border-left: 2px solid var(--accent-dim);
     background: var(--panel-2); border-radius: 4px; color: var(--text-dim); font-size: 12.5px;
     overflow-wrap: anywhere; word-break: break-word; max-width: 100%;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+  .quoted-message:hover {
+    background: rgba(61, 220, 151, 0.08);
+    border-left-color: var(--accent);
   }
   .quoted-message .quote-author { color: var(--accent); font-size: 11px; margin-bottom: 2px; }
   .msg .snapshot {
@@ -723,7 +849,12 @@
   </div>
 
 <script>
-const POLL_MS = 5000;
+const POLL_MS = 3000;
+const BACKGROUND_POLL_MS = 10_000;
+const NOTIFICATION_POLL_MS = 7000;
+const UNREAD_BATCH_SIZE = 6;
+let isRefreshingUnread = false;
+let isPollingNotifications = false;
 let currentRoom = null;
 let pollTimer = null;
 let renderedIds = new Set();
@@ -740,7 +871,10 @@ let unreadStartByRoom = JSON.parse(localStorage.getItem("tv-chat-unread-start") 
 let notificationIds = new Set(JSON.parse(localStorage.getItem("tv-chat-notification-ids") || "[]"));
 let notificationRecords = JSON.parse(localStorage.getItem("tv-chat-notification-records") || "[]");
 let roomLatestIds = JSON.parse(localStorage.getItem("tv-chat-room-latest") || "{}");
+let roomLatestInfo = JSON.parse(localStorage.getItem("tv-chat-room-latest-info") || "{}");
 let roomWatchPrimed = Boolean(localStorage.getItem("tv-chat-room-watch-primed"));
+let pendingTargetMessageId = null;
+let pendingHighlightTimer = null;
 const collapsedSections = new Set(JSON.parse(localStorage.getItem("tv-chat-collapsed-sections") || "[]"));
 const favoriteRoomIds = new Set(JSON.parse(localStorage.getItem("tv-chat-favorite-rooms") || "[]"));
 const visitedRoomIds = new Set(JSON.parse(localStorage.getItem("tv-chat-visited-rooms") || "[]"));
@@ -810,11 +944,15 @@ function notificationData(item) {
   };
   const link = String(find(["url", "href", "link"]) || "");
   const roomFromLink = link.match(/[?&]room_id=([^&#/]+)/i)?.[1];
+  const foundText = String(find(["message", "chat_message", "message_text", "body", "text"]) || "");
   return {
     ...item,
     room_id: String(find(["room_id", "roomId", "chat_room_id", "conversation_room_id", "chat_id", "room"]) || roomFromLink || ""),
     username: String(find(["username", "user_name", "author_username", "sender_username", "from_username"]) || ""),
-    text: String(find(["message", "chat_message", "message_text", "body", "text"]) || ""),
+    text: foundText,
+    message_text: foundText,
+    reply_text: foundText,
+    source: "onsite",
     time: find(["time", "created_at", "timestamp", "date"]) || item.time,
   };
 }
@@ -839,7 +977,7 @@ function renderNotificationList() {
     const label = item.quoted_text ? "Reply from" : "Mention from";
     button.innerHTML = `${quoted}<span class="notification-label">${label}</span><strong> ${escapeHtml(item.username)}</strong>` +
       `<span class="notification-message">${escapeHtml(item.reply_text || item.message_text)}</span>` +
-      `<span class="notification-meta"><span class="notification-room">${escapeHtml(item.room_title || item.room_id)}</span> · <span class="notification-time">${fmtTime(item.time)}</span></span>`;
+      `<span class="notification-meta"><span class="notification-room">${escapeHtml(item.room_title || item.room_id)}</span> · <span class="notification-time" title="${escapeHtml(fmtFullTime(item.time))}">${fmtTime(item.time)}</span></span>`;
     // Notifications use escaped HTML text. Replace emoji shortcodes afterward
     // to preserve safety while matching the main chat presentation.
     button.querySelectorAll(".notification-message").forEach((node) => {
@@ -923,7 +1061,10 @@ function processIncomingMessage(room, message, { countUnread = false } = {}) {
   if (countUnread && !isMine && !isService) {
     new Audio(special ? "/sounds/mention.mp3" : "/sounds/feed.mp3").play().catch(() => {});
   }
-  if (room?.room_id) rememberRoomActivity(room.room_id, message.time);
+  if (room?.room_id) {
+    rememberRoomActivity(room.room_id, message.time);
+    rememberLatestMessage(room.room_id, message);
+  }
   if (countUnread && !isMine) showIncomingToast(room, message);
 }
 function showIncomingToast(room, message) {
@@ -969,7 +1110,7 @@ function showIncomingToast(room, message) {
   copy.className = "toast-copy";
   const meta = document.createElement("span");
   meta.className = "toast-meta";
-  meta.textContent = `${sender} · ${room.title || room.room_id}`;
+  meta.textContent = `${sender} · ${room.title || room.room_id}${message.time ? ` · ${fmtTime(message.time)}` : ""}`;
   const body = document.createElement("span");
   body.className = "toast-message";
   appendEmojiShortcodes(body, preview);
@@ -982,11 +1123,12 @@ function showIncomingToast(room, message) {
   close.addEventListener("click", (event) => { event.stopPropagation(); toast.remove(); });
   const openRoom = () => {
     toast.remove();
-    if (room.room_id === currentRoom) jumpToLatest();
-    else selectRoom(room);
+    notificationBannerVisible = false;
+    navigateToRoomMessage(room, message.id);
   };
   toast.addEventListener("click", openRoom);
   toast.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openRoom(); } });
+  if (message.time) toast.title = fmtFullTime(message.time);
   toast.append(avatar, copy, close);
   messageToastStack.prepend(toast);
   // Limit the stack to keep the screen usable without removing relevant recent
@@ -1026,8 +1168,85 @@ function markCurrentRoomRead() {
   updateJumpLatestButton();
   loadRooms().catch(() => {});
 }
+function highlightAndScrollToElement(el, { smooth = false } = {}) {
+  if (!el) return;
+
+  messagesEl.querySelectorAll(".msg.msg-highlighted, .msg.highlighted").forEach((node) => {
+    if (node !== el) {
+      node.classList.remove("msg-highlighted", "highlighted");
+    }
+  });
+
+  el.classList.remove("msg-highlighted", "highlighted");
+  void el.offsetWidth;
+  el.classList.add("msg-highlighted");
+
+  ignoreScrollUntil = performance.now() + 500;
+  const scrollTarget = () => {
+    if (el && el.isConnected) {
+      const containerRect = messagesEl.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const relativeTop = elRect.top - containerRect.top;
+      const targetScroll = messagesEl.scrollTop + relativeTop - (containerRect.height / 2) + (elRect.height / 2);
+      messagesEl.scrollTop = Math.max(0, targetScroll);
+      messagesEl.scrollLeft = 0;
+      window.scrollTo(0, 0);
+    }
+  };
+  scrollTarget();
+  requestAnimationFrame(scrollTarget);
+  setTimeout(scrollTarget, 80);
+  setTimeout(scrollTarget, 220);
+
+  if (pendingHighlightTimer) clearTimeout(pendingHighlightTimer);
+  pendingHighlightTimer = setTimeout(() => {
+    pendingTargetMessageId = null;
+    if (el && el.isConnected) {
+      el.classList.remove("msg-highlighted", "highlighted");
+    }
+  }, 4000);
+}
+
+function highlightAndScrollToMessage(messageId, { smooth = false } = {}) {
+  if (!messageId) return false;
+  const targetId = String(messageId);
+  const el = messagesEl.querySelector(`.msg[data-message-id="${CSS.escape(targetId)}"]`);
+  if (el) {
+    highlightAndScrollToElement(el, { smooth });
+    return true;
+  }
+  return false;
+}
+
+function navigateToRoomMessage(room, messageId = null) {
+  if (!room) return;
+  pendingTargetMessageId = messageId ? String(messageId) : null;
+
+  if (currentRoom === room.room_id) {
+    if (pendingTargetMessageId) {
+      const found = highlightAndScrollToMessage(pendingTargetMessageId);
+      if (!found) {
+        fetchMessages({ reset: false });
+      }
+    } else {
+      jumpToLatest();
+    }
+    return;
+  }
+
+  selectRoom(room, { targetMessageId: pendingTargetMessageId });
+}
+
 function jumpToLatest() {
   const selectedRoom = currentRoom;
+  const unreadStartId = selectedRoom ? unreadStartByRoom[selectedRoom] : null;
+  if (unreadStartId) {
+    const found = highlightAndScrollToMessage(unreadStartId);
+    if (found) {
+      markCurrentRoomRead();
+      return;
+    }
+  }
   // Smooth scrolling dapat dibatalkan render polling di tengah animasi. Lompat
   // immediately, then repeat after the next layout frame to reach the latest
   // message even when media or preview heights have not yet settled.
@@ -1117,8 +1336,36 @@ sidebarToggle.addEventListener("click", () => {
 
 function fmtTime(iso) {
   const d = new Date(iso);
-  if (isNaN(d)) return "";
+  if (isNaN(d.getTime())) return "";
   return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmtFullTime(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const time = d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).replace(/\./g, ":");
+  const date = d.toLocaleDateString("id-ID");
+  return `${time} · ${date}`;
+}
+
+function fmtTimeAgo(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const now = Date.now();
+  const diffMs = Math.max(0, now - d.getTime());
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+
+  if (diffSec < 60) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHour < 24) return `${diffHour}h ago`;
+  const isSameYear = d.getFullYear() === new Date(now).getFullYear();
+  return d.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    ...(isSameYear ? {} : { year: "numeric" }),
+  });
 }
 
 function escapeHtml(s) {
@@ -1360,6 +1607,20 @@ function addMessageContent(parent, value) {
   if (!quote) return addRichText(parent, text.slice(quoteAt.index));
   const box = document.createElement("div");
   box.className = "quoted-message";
+  box.title = `Click to jump to @${quote.author}'s message`;
+  box.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const authorClean = String(quote.author || "").replace(/^@/, "").toLowerCase();
+    const quoteSnippet = String(quote.content || "").replace(/\[[^\]]+\]/g, "").trim().toLowerCase();
+    const found = [...currentMessages].reverse().find((m) => {
+      const u = String(m.username || "").replace(/^@/, "").toLowerCase();
+      const t = String(m.text || "").toLowerCase();
+      return u === authorClean && (!quoteSnippet || t.includes(quoteSnippet.slice(0, 40)));
+    });
+    if (found) {
+      highlightAndScrollToMessage(found.id);
+    }
+  });
   const author = document.createElement("div");
   author.className = "quote-author";
   author.textContent = `↩ ${quote.author}`;
@@ -1423,6 +1684,7 @@ function renderServiceMessage(m, { isJoin, isLeave }) {
   const time = document.createElement("span");
   time.className = "time";
   time.textContent = fmtTime(m.time);
+  time.title = fmtFullTime(m.time);
   pill.appendChild(time);
 
   div.appendChild(pill);
@@ -1486,6 +1748,7 @@ function renderMessage(m) {
   const time = document.createElement("span");
   time.className = "time";
   time.textContent = fmtTime(m.time);
+  time.title = fmtFullTime(m.time);
   meta.appendChild(time);
   body.appendChild(meta);
 
@@ -1627,6 +1890,101 @@ function replyTextFromMessage(value) {
     quote = nested;
   }
   return "";
+}
+
+function cleanPreviewText(message) {
+  if (!message) return "";
+  if (typeof message === "string") message = { text: message };
+  const type = String(message.type || "").toLowerCase();
+  const isJoin = type === "join" || type === "joined";
+  const isLeave = type === "leave" || type === "left";
+  const isService = isJoin || isLeave || Boolean(message.meta?.service_msg);
+  let text = replyTextFromMessage(message.text || "") || String(message.text || "").replace(/\[[^\]]+\]/g, "").trim();
+  if (!text) {
+    if (isJoin) text = "joined the room";
+    else if (isLeave) text = "left the room";
+    else if (isService) text = "room event";
+    else if (message.meta?.type === "snapshot" && message.meta.url) text = "shared a chart";
+    else text = "sent a message";
+  }
+  text = text.replace(/[\r\n\t]+/g, " ").trim();
+  if (typeof TV_EMOJI_PATTERN !== "undefined") {
+    text = text.replace(TV_EMOJI_PATTERN, (match) => TV_EMOJIS[match] || match);
+  }
+  return text;
+}
+
+function rememberLatestMessage(roomId, message, { force = false } = {}) {
+  if (!roomId || !message) return;
+  const time = message.time || new Date().toISOString();
+  const existing = roomLatestInfo[roomId];
+  if (!force && existing?.time) {
+    const existingTs = new Date(existing.time).getTime();
+    const newTs = new Date(time).getTime();
+    if (newTs && existingTs && newTs < existingTs) {
+      return;
+    }
+  }
+  const username = String(message.username || "").replace(/^@/, "");
+  const text = cleanPreviewText(message);
+  roomLatestInfo[roomId] = {
+    id: message.id || "",
+    username,
+    text,
+    time,
+  };
+  localStorage.setItem("tv-chat-room-latest-info", JSON.stringify(roomLatestInfo));
+  updateRoomEntryPreview(roomId);
+}
+
+function updateRoomEntryPreview(roomId) {
+  const latest = roomLatestInfo[roomId];
+  if (!latest) return;
+  const timeAgo = latest.time ? fmtTimeAgo(latest.time) : "";
+  const fullTime = latest.time ? fmtFullTime(latest.time) : "";
+  const unread = Number(unreadByRoom[roomId] || 0);
+
+  const entries = roomListEl.querySelectorAll(`li.room-entry[data-room-id="${CSS.escape(roomId)}"]`);
+  entries.forEach((li) => {
+    let timeEl = li.querySelector(".room-time");
+    if (timeEl) {
+      timeEl.textContent = timeAgo;
+      timeEl.title = fullTime;
+    } else if (timeAgo) {
+      const headerRow = li.querySelector(".room-header-row");
+      if (headerRow) {
+        timeEl = document.createElement("span");
+        timeEl.className = "room-time";
+        timeEl.textContent = timeAgo;
+        timeEl.title = fullTime;
+        headerRow.appendChild(timeEl);
+      }
+    }
+
+    const snippetEl = li.querySelector(".room-snippet");
+    if (snippetEl) {
+      snippetEl.title = (latest.username ? `@${latest.username}: ` : "") + (latest.text || "");
+      const authorHtml = latest.username ? `<span class="room-last-user">@${escapeHtml(latest.username)}:</span> ` : "";
+      snippetEl.innerHTML = `${authorHtml}<span class="room-last-text">${escapeHtml(latest.text)}</span>`;
+    }
+
+    let badgeEl = li.querySelector(".room-badge");
+    if (unread) {
+      if (badgeEl) {
+        badgeEl.textContent = unread > 99 ? "99+" : unread;
+      } else {
+        const snippetRow = li.querySelector(".room-snippet-row");
+        if (snippetRow) {
+          badgeEl = document.createElement("span");
+          badgeEl.className = "room-badge";
+          badgeEl.textContent = unread > 99 ? "99+" : unread;
+          snippetRow.appendChild(badgeEl);
+        }
+      }
+    } else if (badgeEl) {
+      badgeEl.remove();
+    }
+  });
 }
 
 quoteClearBtn.addEventListener("click", () => {
@@ -1939,6 +2297,29 @@ async function loadRooms() {
   saveUnread();
   const allRooms = [...(groups.public || []), ...(groups.private || [])];
   roomsById = new Map(allRooms.map((room) => [room.room_id, room]));
+
+  allRooms.forEach((r) => {
+    if (r.latest && r.latest.time) {
+      const existing = roomLatestInfo[r.room_id];
+      const newTime = new Date(r.latest.time).getTime();
+      const existingTime = existing?.time ? new Date(existing.time).getTime() : 0;
+      if (!existing || newTime >= existingTime) {
+        roomLatestInfo[r.room_id] = {
+          id: r.latest.id || "",
+          username: String(r.latest.username || "").replace(/^@/, ""),
+          text: cleanPreviewText(r.latest),
+          time: r.latest.time,
+        };
+      }
+      if (newTime && (!roomActivity[r.room_id] || newTime > roomActivity[r.room_id])) {
+        roomActivity[r.room_id] = newTime;
+      }
+    }
+  });
+  localStorage.setItem("tv-chat-room-latest-info", JSON.stringify(roomLatestInfo));
+  localStorage.setItem("tv-chat-room-activity", JSON.stringify(roomActivity));
+
+  const scrollPos = roomListEl.scrollTop;
   roomListEl.innerHTML = "";
   const sortRoomsByActivity = (sourceRooms) => sourceRooms.slice().sort((a, b) => {
       const activityOrder = Number(roomActivity[b.room_id] || 0) - Number(roomActivity[a.room_id] || 0);
@@ -1967,21 +2348,59 @@ async function loadRooms() {
     heading.appendChild(toggle);
     roomListEl.appendChild(heading);
     rooms.forEach((r) => {
-    const li = document.createElement("li");
-    li.classList.add("room-entry");
-    if (r.room_id === currentRoom) li.classList.add("active");
-    li.dataset.section = key;
-    li.dataset.roomId = r.room_id;
-    const unread = Number(unreadByRoom[r.room_id] || 0);
-    li.innerHTML = `<button class="room-star${favoriteRoomIds.has(r.room_id) ? " active" : ""}" type="button" aria-label="${favoriteRoomIds.has(r.room_id) ? "Remove from favorites" : "Add to favorites"}" title="Favorite room">★</button><span class="room-title">${escapeHtml(r.title)}</span>${unread ? `<span class="room-badge">${unread > 99 ? "99+" : unread}</span>` : ""}`;
-    li.querySelector(".room-star").addEventListener("click", (event) => {
-      event.stopPropagation();
-      if (favoriteRoomIds.has(r.room_id)) favoriteRoomIds.delete(r.room_id); else favoriteRoomIds.add(r.room_id);
-      localStorage.setItem("tv-chat-favorite-rooms", JSON.stringify([...favoriteRoomIds]));
-      loadRooms().catch(() => {});
-    });
-    li.addEventListener("click", () => selectRoom(r));
-    roomListEl.appendChild(li);
+      const li = document.createElement("li");
+      li.classList.add("room-entry");
+      if (r.room_id === currentRoom) li.classList.add("active");
+      li.dataset.section = key;
+      li.dataset.roomId = r.room_id;
+      const unread = Number(unreadByRoom[r.room_id] || 0);
+
+      let latest = roomLatestInfo[r.room_id];
+      if (!latest) {
+        const history = loadHistory(r.room_id);
+        if (history.length) {
+          const lastMsg = history[history.length - 1];
+          rememberLatestMessage(r.room_id, lastMsg);
+          latest = roomLatestInfo[r.room_id];
+        }
+      }
+      const timeAgo = latest?.time ? fmtTimeAgo(latest.time) : "";
+      const fullTime = latest?.time ? fmtFullTime(latest.time) : "";
+      const previewText = latest?.text ? escapeHtml(latest.text) : "";
+      const authorHtml = latest?.username ? `<span class="room-last-user">@${escapeHtml(latest.username)}:</span> ` : "";
+      const fullSnippet = (latest?.username ? `@${latest.username}: ` : "") + (latest?.text || "");
+
+      const snippetHtml = (latest && (latest.username || latest.text))
+        ? `${authorHtml}<span class="room-last-text">${previewText}</span>`
+        : `<span class="room-last-empty">No messages yet</span>`;
+
+      li.innerHTML = `<button class="room-star${favoriteRoomIds.has(r.room_id) ? " active" : ""}" type="button" aria-label="${favoriteRoomIds.has(r.room_id) ? "Remove from favorites" : "Add to favorites"}" title="Favorite room">★</button>` +
+        `<div class="room-info">` +
+          `<div class="room-header-row">` +
+            `<span class="room-title" title="${escapeHtml(r.title)}">${escapeHtml(r.title)}</span>` +
+            (timeAgo ? `<span class="room-time" title="${escapeHtml(fullTime)}">${timeAgo}</span>` : "") +
+          `</div>` +
+          `<div class="room-snippet-row">` +
+            `<span class="room-snippet" title="${escapeHtml(fullSnippet)}">${snippetHtml}</span>` +
+            (unread ? `<span class="room-badge">${unread > 99 ? "99+" : unread}</span>` : "") +
+          `</div>` +
+        `</div>`;
+
+      li.querySelector(".room-star").addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (favoriteRoomIds.has(r.room_id)) favoriteRoomIds.delete(r.room_id); else favoriteRoomIds.add(r.room_id);
+        localStorage.setItem("tv-chat-favorite-rooms", JSON.stringify([...favoriteRoomIds]));
+        loadRooms().catch(() => {});
+      });
+      li.addEventListener("click", () => {
+        const unreadStart = unreadStartByRoom[r.room_id];
+        if (unreadStart) {
+          navigateToRoomMessage(r, unreadStart);
+        } else {
+          selectRoom(r);
+        }
+      });
+      roomListEl.appendChild(li);
     });
     updateToggle();
   };
@@ -1989,6 +2408,7 @@ async function loadRooms() {
   renderRoomSection("favorites", "Favorites", allRooms.filter((room) => favoriteRoomIds.has(room.room_id)));
   renderRoomSection("public", "Public chat", groups.public || []);
   renderRoomSection("private", "Private chat", groups.private || []);
+  roomListEl.scrollTop = scrollPos;
 }
 
 function setActiveLi(roomId) {
@@ -1997,10 +2417,11 @@ function setActiveLi(roomId) {
   });
 }
 
-function selectRoom(room) {
+function selectRoom(room, { targetMessageId = null } = {}) {
   roomLoadGeneration += 1;
   loadingOlder = false;
   currentRoom = room.room_id;
+  pendingTargetMessageId = targetMessageId ? String(targetMessageId) : null;
   visitedRoomIds.add(room.room_id);
   localStorage.setItem("tv-chat-visited-rooms", JSON.stringify([...visitedRoomIds]));
   renderedIds = new Set();
@@ -2017,8 +2438,11 @@ function selectRoom(room) {
   if (pollTimer) clearInterval(pollTimer);
   loadRooms().catch(() => {});
   if (currentMessages.length) {
-    renderCurrentMessages({ scrollToLatest: true });
-    markCurrentRoomRead();
+    renderCurrentMessages({
+      scrollToLatest: !pendingTargetMessageId,
+      targetMessageId: pendingTargetMessageId,
+    });
+    if (!pendingTargetMessageId) markCurrentRoomRead();
   }
   fetchMessages({ reset: true });
   pollTimer = setInterval(fetchMessages, POLL_MS);
@@ -2038,7 +2462,8 @@ function restoreScrollAnchor(anchor) {
   messagesEl.scrollTop += offset - anchor.offset;
 }
 
-function renderCurrentMessages({ preserveScroll = false, scrollToLatest = true } = {}) {
+function renderCurrentMessages({ preserveScroll = false, scrollToLatest = true, targetMessageId = null } = {}) {
+  const activeTargetId = targetMessageId || pendingTargetMessageId;
   ignoreScrollUntil = performance.now() + 120;
   const before = messagesEl.scrollHeight - messagesEl.scrollTop;
   const anchor = preserveScroll ? captureScrollAnchor() : null;
@@ -2069,16 +2494,27 @@ function renderCurrentMessages({ preserveScroll = false, scrollToLatest = true }
     renderedIds.add(message.id);
     messagesEl.appendChild(renderMessage(message));
   });
-  if (preserveScroll) {
-    if (anchor) {
-      restoreScrollAnchor(anchor);
-      // Image/link previews can settle just after the DOM render. Restore the
-      // same message anchor once more so loading older history never jolts the
-      // message the user was reading.
-      requestAnimationFrame(() => restoreScrollAnchor(anchor));
-    } else messagesEl.scrollTop = Math.max(0, messagesEl.scrollHeight - before);
+
+  let targeted = false;
+  if (activeTargetId) {
+    const targetEl = messagesEl.querySelector(`.msg[data-message-id="${CSS.escape(String(activeTargetId))}"]`);
+    if (targetEl) {
+      targeted = true;
+      highlightAndScrollToElement(targetEl);
+    }
   }
-  else messagesEl.scrollTop = scrollToLatest ? messagesEl.scrollHeight : 0;
+
+  if (!targeted) {
+    if (preserveScroll) {
+      if (anchor) {
+        restoreScrollAnchor(anchor);
+        // Image/link previews can settle just after the DOM render. Restore the
+        // same message anchor once more so loading older history never jolts the
+        // message the user was reading.
+        requestAnimationFrame(() => restoreScrollAnchor(anchor));
+      } else messagesEl.scrollTop = Math.max(0, messagesEl.scrollHeight - before);
+    } else messagesEl.scrollTop = scrollToLatest ? messagesEl.scrollHeight : 0;
+  }
   updateJumpLatestButton();
 }
 
@@ -2111,6 +2547,8 @@ async function fetchMessages({ reset = false } = {}) {
     if (latestMessage?.id) {
       roomLatestIds[roomId] = latestMessage.id;
       localStorage.setItem("tv-chat-room-latest", JSON.stringify(roomLatestIds));
+      rememberRoomActivity(roomId, latestMessage.time);
+      rememberLatestMessage(roomId, latestMessage);
     }
     const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 60;
     const oldIds = new Set(currentMessages.map((m) => m.id));
@@ -2133,8 +2571,14 @@ async function fetchMessages({ reset = false } = {}) {
     saveHistory();
     // A poll with no new messages does not alter the DOM or scroll position,
     // eliminating flicker and subtle jumps on each five-second refresh.
-    if (contentChanged) renderCurrentMessages({ preserveScroll: !atBottom && !reset, scrollToLatest: true });
-    if (reset) markCurrentRoomRead();
+    if (contentChanged) {
+      renderCurrentMessages({
+        preserveScroll: !atBottom && !reset && !pendingTargetMessageId,
+        scrollToLatest: !pendingTargetMessageId,
+        targetMessageId: pendingTargetMessageId,
+      });
+    }
+    if (reset && !pendingTargetMessageId) markCurrentRoomRead();
   } catch (e) {
     if (generation !== roomLoadGeneration || roomId !== currentRoom) return;
     statusEl.textContent = "backend connection failed";
@@ -2188,50 +2632,84 @@ async function navigateToNotification(item) {
   notificationModal.classList.remove("active");
   item.read = true;
   saveNotificationRecords();
-  selectRoom(room);
+  const targetId = item.message_id || item.id;
+  navigateToRoomMessage(room, targetId);
   // Message content is stored in local storage when a notification is detected.
   // There is no need to search or scroll old history; prepare a quote reply.
   startReply({ username: item.username, text: item.reply_text || item.message_text });
 }
 
 // Native new-message delivery for unopened rooms uses a public/private WebSocket
-// feed. That feed is not a stable HTTP API, so this viewer uses conservative
-// 20-second polling to preserve badges without requiring users to open each room.
+// feed. That feed is not a stable HTTP API, so this viewer uses optimized
+// background polling to preserve badges and toasts without requiring users to open each room.
 async function refreshUnreadRooms() {
-  const roomIds = [...roomsById.keys()].filter((id) => id !== currentRoom);
-  for (let i = 0; i < roomIds.length; i += 4) {
-    const batch = roomIds.slice(i, i + 4);
-    await Promise.all(batch.map(async (roomId) => {
-      try {
-        const res = await fetch(`/api/messages/${encodeURIComponent(roomId)}?offset=0`);
-        const data = await res.json();
-        if (!res.ok || !data.messages?.length) return;
-        // This background feed covers every room, so use it as the global
-        // mention directory rather than only the currently open room.
-        collectUsernames(data.messages);
-        const latest = data.messages[data.messages.length - 1];
-        const previous = roomLatestIds[roomId];
-        let additions = [];
-        if (roomWatchPrimed && previous && previous !== latest.id) {
-          const position = data.messages.findIndex((message) => message.id === previous);
-          additions = position >= 0 ? data.messages.slice(position + 1) : [latest];
-          if (!unreadStartByRoom[roomId]) unreadStartByRoom[roomId] = additions[0]?.id || "";
-          unreadByRoom[roomId] = Number(unreadByRoom[roomId] || 0) + additions.length;
-        }
-        // Bootstrap inspects the latest page once, then only new messages. This
-        // ensures local notifications retain both room and message content.
-        const messagesToInspect = roomWatchPrimed ? additions : data.messages;
-        const room = roomsById.get(roomId);
-        messagesToInspect.forEach((message) => processIncomingMessage(room, message, { countUnread: roomWatchPrimed }));
-        roomLatestIds[roomId] = latest.id;
-      } catch (_) { }
-    }));
+  if (isRefreshingUnread) return;
+  isRefreshingUnread = true;
+  try {
+    const roomIds = [...roomsById.keys()].filter((id) => id !== currentRoom);
+    // Prioritaskan antrean room:
+    // 1. Room privat
+    // 2. Room favorit
+    // 3. Room yang aktif (memiliki riwayat pesan/aktivitas terbaru)
+    // 4. Room publik lainnya
+    roomIds.sort((a, b) => {
+      const roomA = roomsById.get(a);
+      const roomB = roomsById.get(b);
+      const isPrivateA = Boolean(roomA?.is_private || a.startsWith("pm_"));
+      const isPrivateB = Boolean(roomB?.is_private || b.startsWith("pm_"));
+      if (isPrivateA !== isPrivateB) return isPrivateB ? 1 : -1;
+
+      const isFavA = favoriteRoomIds.has(a);
+      const isFavB = favoriteRoomIds.has(b);
+      if (isFavA !== isFavB) return isFavB ? 1 : -1;
+
+      const actA = Number(roomActivity[a] || 0);
+      const actB = Number(roomActivity[b] || 0);
+      if (actA !== actB) return actB - actA;
+
+      return 0;
+    });
+
+    for (let i = 0; i < roomIds.length; i += UNREAD_BATCH_SIZE) {
+      const batch = roomIds.slice(i, i + UNREAD_BATCH_SIZE);
+      await Promise.all(batch.map(async (roomId) => {
+        try {
+          const res = await fetch(`/api/messages/${encodeURIComponent(roomId)}?offset=0`);
+          const data = await res.json();
+          if (!res.ok || !data.messages?.length) return;
+          // This background feed covers every room, so use it as the global
+          // mention directory rather than only the currently open room.
+          collectUsernames(data.messages);
+          const latest = data.messages[data.messages.length - 1];
+          if (latest) {
+            rememberRoomActivity(roomId, latest.time);
+            rememberLatestMessage(roomId, latest);
+          }
+          const previous = roomLatestIds[roomId];
+          let additions = [];
+          if (roomWatchPrimed && previous && previous !== latest.id) {
+            const position = data.messages.findIndex((message) => message.id === previous);
+            additions = position >= 0 ? data.messages.slice(position + 1) : [latest];
+            if (!unreadStartByRoom[roomId]) unreadStartByRoom[roomId] = additions[0]?.id || "";
+            unreadByRoom[roomId] = Number(unreadByRoom[roomId] || 0) + additions.length;
+          }
+          // Bootstrap inspects the latest page once, then only new messages. This
+          // ensures local notifications retain both room and message content.
+          const messagesToInspect = roomWatchPrimed ? additions : data.messages;
+          const room = roomsById.get(roomId);
+          messagesToInspect.forEach((message) => processIncomingMessage(room, message, { countUnread: roomWatchPrimed }));
+          roomLatestIds[roomId] = latest.id;
+        } catch (_) { }
+      }));
+    }
+    roomWatchPrimed = true;
+    localStorage.setItem("tv-chat-room-latest", JSON.stringify(roomLatestIds));
+    localStorage.setItem("tv-chat-room-watch-primed", "1");
+    saveUnread();
+    loadRooms().catch(() => {});
+  } finally {
+    isRefreshingUnread = false;
   }
-  roomWatchPrimed = true;
-  localStorage.setItem("tv-chat-room-latest", JSON.stringify(roomLatestIds));
-  localStorage.setItem("tv-chat-room-watch-primed", "1");
-  saveUnread();
-  loadRooms().catch(() => {});
 }
 
 function extractNotifications(value, output = [], inheritedId = null) {
@@ -2250,6 +2728,8 @@ function extractNotifications(value, output = [], inheritedId = null) {
   return output;
 }
 async function pollNotifications() {
+  if (isPollingNotifications) return;
+  isPollingNotifications = true;
   try {
     const res = await fetch("/api/notifications");
     const data = await res.json();
@@ -2267,12 +2747,21 @@ async function pollNotifications() {
     const fresh = items.filter((item) => !notificationIds.has(String(item.id)));
     if (fresh.length) {
       notificationUnread += fresh.length;
+      notificationBannerVisible = true;
       localStorage.setItem("tv-chat-notification-unread", String(notificationUnread));
       renderNotificationBadge();
       if (notificationIds.size) {
         const audio = new Audio("/sounds/mention.mp3");
         audio.play().catch(() => {});
       }
+      fresh.forEach((item) => {
+        const room = roomsById.get(item.room_id) || { room_id: item.room_id, title: item.room_title || item.room_id, is_notification_room: true };
+        showIncomingToast(room, {
+          username: item.username,
+          text: item.reply_text || item.text,
+          time: item.time,
+        });
+      });
     }
     // Replace older records with the latest payload. This corrects notifications
     // previously stored without room_id because of API structure variation.
@@ -2282,10 +2771,35 @@ async function pollNotifications() {
     items.forEach((item) => notificationIds.add(String(item.id)));
     localStorage.setItem("tv-chat-notification-ids", JSON.stringify([...notificationIds].slice(-500)));
     localStorage.setItem("tv-chat-notification-records", JSON.stringify(notificationRecords));
-    const unseen = fresh.length;
-    const title = unseen ? `(${unseen}) Public Chat Viewer` : "Public Chat Viewer";
-    document.title = title;
+    renderNotificationBadge();
   } catch (_) { /* Local badges continue functioning when the notification endpoint fails. */ }
+  finally {
+    isPollingNotifications = false;
+  }
+}
+
+function refreshRelativeTimes() {
+  roomListEl.querySelectorAll("li.room-entry").forEach((li) => {
+    const roomId = li.dataset.roomId;
+    const latest = roomLatestInfo[roomId];
+    if (!latest?.time) return;
+    const timeAgo = fmtTimeAgo(latest.time);
+    const fullTime = fmtFullTime(latest.time);
+    let timeEl = li.querySelector(".room-time");
+    if (timeEl) {
+      timeEl.textContent = timeAgo;
+      timeEl.title = fullTime;
+    } else if (timeAgo) {
+      const headerRow = li.querySelector(".room-header-row");
+      if (headerRow) {
+        timeEl = document.createElement("span");
+        timeEl.className = "room-time";
+        timeEl.textContent = timeAgo;
+        timeEl.title = fullTime;
+        headerRow.appendChild(timeEl);
+      }
+    }
+  });
 }
 
 Promise.all([fetch("/api/config").then((r) => r.json()), loadRooms()]).then(([config]) => {
@@ -2294,7 +2808,10 @@ Promise.all([fetch("/api/config").then((r) => r.json()), loadRooms()]).then(([co
   // or room information. The local chat feed retained through refreshUnreadRooms()
   // is the single source for replyable notification records.
   refreshUnreadRooms();
-  setInterval(refreshUnreadRooms, 20_000);
+  setInterval(refreshUnreadRooms, BACKGROUND_POLL_MS);
+  setInterval(refreshRelativeTimes, 30_000);
+  pollNotifications();
+  setInterval(pollNotifications, NOTIFICATION_POLL_MS);
 });
 </script>
 </body>

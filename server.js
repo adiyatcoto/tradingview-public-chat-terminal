@@ -168,10 +168,63 @@ async function fetchPrivateRooms({ force = false } = {}) {
     let info = {};
     try { info = await upstreamJson(`/chats/info/?room_id=${encodeURIComponent(roomId)}`); } catch (_) { }
     const title = privateRoomTitle(room, members, info);
-    return { room_id: roomId, title, short: title, is_private: true, unread: Number(room.unread || room.unread_count || 0) };
+    let latest = null;
+    if (room.last_message || room.updated) {
+      const match = String(room.last_message || "").match(/^([^:]+):\s*(.*)$/s);
+      const username = match ? match[1].trim() : "";
+      const text = match ? match[2].trim() : String(room.last_message || "").trim();
+      const time = room.updated ? new Date(Number(room.updated) * 1000).toISOString() : null;
+      if (username || text || time) {
+        latest = { username, text, time };
+      }
+    }
+    return {
+      room_id: roomId,
+      title,
+      short: title,
+      is_private: true,
+      unread: Number(room.unread || room.new_msgs || room.unread_count || 0),
+      latest,
+    };
   }));
   privateRoomsAt = Date.now();
   return privateRooms;
+}
+
+let publicRoomsCache = null;
+let publicRoomsAt = 0;
+
+async function fetchPublicRooms({ force = false } = {}) {
+  if (!force && publicRoomsCache && Date.now() - publicRoomsAt < 30_000) {
+    return publicRoomsCache;
+  }
+  try {
+    const payload = await upstreamJson("/chats/public/get/");
+    const tvPublicRooms = Array.isArray(payload) ? payload : payload.chats || payload.rooms || payload.data || [];
+    const tvMap = new Map(tvPublicRooms.map((r) => [r.room_id, r]));
+    publicRoomsCache = rooms.map((room) => {
+      const tvRoom = tvMap.get(room.room_id);
+      let latest = null;
+      if (tvRoom && (tvRoom.msgs_last_text || tvRoom.msgs_last_ts || tvRoom.last_message)) {
+        const rawText = tvRoom.msgs_last_text || tvRoom.last_message || "";
+        const match = String(rawText).match(/^([^:]+):\s*(.*)$/s);
+        const username = match ? match[1].trim() : "";
+        const text = match ? match[2].trim() : String(rawText).trim();
+        const ts = tvRoom.msgs_last_ts || tvRoom.updated;
+        const time = ts ? new Date(Number(ts) * 1000).toISOString() : null;
+        if (username || text || time) {
+          latest = { username, text, time };
+        }
+      }
+      return { ...room, latest };
+    });
+    publicRoomsAt = Date.now();
+    return publicRoomsCache;
+  } catch (err) {
+    console.error("[tv-chat-viewer] could not fetch public room catalogue:", err.message);
+    if (publicRoomsCache) return publicRoomsCache;
+    return rooms;
+  }
 }
 
 async function knownRoom(roomId) {
@@ -232,7 +285,8 @@ app.use(express.static("public"));
 
 app.get("/api/rooms", async (req, res) => {
   try {
-    res.json({ public: rooms, private: await fetchPrivateRooms() });
+    const [pubRooms, privRooms] = await Promise.all([fetchPublicRooms(), fetchPrivateRooms()]);
+    res.json({ public: pubRooms, private: privRooms });
   } catch (err) {
     res.status(502).json({ error: err.message, code: err.code || "UPSTREAM_ERROR" });
   }
