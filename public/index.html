@@ -260,6 +260,89 @@
     display: flex;
     gap: 10px;
   }
+  .msg.system-msg {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2px 0;
+    gap: 0;
+  }
+  .system-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    max-width: 100%;
+    animation: fadein .15s ease;
+  }
+  .system-pill .system-icon {
+    font-weight: 800;
+    font-size: 12px;
+    line-height: 1;
+  }
+  .msg.system-msg.msg-join .system-icon {
+    color: var(--accent);
+  }
+  .msg.system-msg.msg-leave .system-icon {
+    color: #e0574a;
+  }
+  .system-pill .system-avatar {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+  .system-pill .username {
+    font-weight: 600;
+  }
+  .system-pill .username a {
+    color: var(--amber);
+    text-decoration: none;
+  }
+  .system-pill .username a:hover {
+    color: #ffd27d;
+    text-decoration: underline;
+  }
+  .system-pill .mention-user-btn {
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: 800 12px/1 inherit;
+    padding: 0 2px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .system-pill .mention-user-btn:hover {
+    background: var(--accent-dim);
+    color: #eafff4;
+  }
+  .system-pill .system-action {
+    color: var(--text-dim);
+  }
+  .msg.system-msg.msg-join .system-action {
+    color: #8ce3ba;
+  }
+  .msg.system-msg.msg-leave .system-action {
+    color: #efa3a3;
+  }
+  .system-pill .time {
+    color: var(--text-dim);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 10px;
+    margin-left: 2px;
+  }
+  .msg .text.text-empty {
+    color: var(--text-dim);
+    font-style: italic;
+    font-size: 12px;
+  }
   @keyframes fadein { from { opacity: 0; transform: translateY(3px);} to { opacity: 1; transform: none; } }
   .msg img.avatar {
     width: 30px; height: 30px;
@@ -832,7 +915,12 @@ function processIncomingMessage(room, message, { countUnread = false } = {}) {
   const isMine = sender && sender === String(selfUsername || "").replace(/^@/, "").toLowerCase();
   const special = mentionsOrRepliesMe(message);
   if (special) recordChatNotification(room, message, { countUnread });
-  if (countUnread && !isMine) {
+  const type = String(message?.type || "").toLowerCase();
+  const isJoin = type === "join" || type === "joined";
+  const isLeave = type === "leave" || type === "left";
+  const isService = isJoin || isLeave || Boolean(message?.meta?.service_msg);
+  // Do not play feed sound for silent join/leave service events
+  if (countUnread && !isMine && !isService) {
     new Audio(special ? "/sounds/mention.mp3" : "/sounds/feed.mp3").play().catch(() => {});
   }
   if (room?.room_id) rememberRoomActivity(room.room_id, message.time);
@@ -841,7 +929,17 @@ function processIncomingMessage(room, message, { countUnread = false } = {}) {
 function showIncomingToast(room, message) {
   if (!room || !message) return;
   const sender = String(message.username || "Someone").replace(/^@/, "");
-  const preview = replyTextFromMessage(message.text || "") || String(message.text || "").replace(/\[[^\]]+\]/g, "").trim() || "Sent a new message";
+  const type = String(message.type || "").toLowerCase();
+  const isJoin = type === "join" || type === "joined";
+  const isLeave = type === "leave" || type === "left";
+  const isService = isJoin || isLeave || Boolean(message.meta?.service_msg);
+  let preview = replyTextFromMessage(message.text || "") || String(message.text || "").replace(/\[[^\]]+\]/g, "").trim();
+  if (!preview) {
+    if (isJoin) preview = "Joined the room";
+    else if (isLeave) preview = "Left the room";
+    else if (isService) preview = "Room event";
+    else preview = "Sent a new message";
+  }
   const palettes = [
     ["#3ddc97", "#17302a"], ["#62b6ff", "#172936"], ["#c992ff", "#2d2039"],
     ["#f2c14e", "#352d18"], ["#ff8d72", "#38231f"], ["#67d9d0", "#173331"],
@@ -898,8 +996,15 @@ function showIncomingToast(room, message) {
 function shouldShow(message) {
   const matchesFilter = chatFilter.value === "all" || String(message.username || "").toLowerCase() === selfUsername.toLowerCase() || mentionsOrRepliesMe(message);
   const query = messageSearch.value.trim().toLowerCase();
-  const matchesSearch = !query || String(message.username || "").toLowerCase().includes(query) || String(message.text || "").toLowerCase().includes(query);
-  return matchesFilter && matchesSearch;
+  if (!matchesFilter) return false;
+  if (!query) return true;
+  const username = String(message.username || "").toLowerCase();
+  const text = String(message.text || "").toLowerCase();
+  const type = String(message.type || "").toLowerCase();
+  const isJoin = type === "join" || type === "joined";
+  const isLeave = type === "leave" || type === "left";
+  const serviceText = isJoin ? "joined the room join" : (isLeave ? "left the room leave left" : "");
+  return username.includes(query) || text.includes(query) || serviceText.includes(query);
 }
 function saveUnread() {
   localStorage.setItem("tv-chat-unread", JSON.stringify(unreadByRoom));
@@ -1264,7 +1369,77 @@ function addMessageContent(parent, value) {
   if (quote.reply) addMessageContent(parent, quote.reply);
 }
 
+function renderServiceMessage(m, { isJoin, isLeave }) {
+  const div = document.createElement("div");
+  div.className = `msg system-msg ${isJoin ? "msg-join" : isLeave ? "msg-leave" : "msg-service"}`;
+  div.dataset.messageId = m.id || "";
+
+  const pill = document.createElement("div");
+  pill.className = "system-pill";
+
+  const icon = document.createElement("span");
+  icon.className = "system-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = isJoin ? "→" : isLeave ? "←" : "•";
+  pill.appendChild(icon);
+
+  if (m.user_pic) {
+    const avatar = document.createElement("img");
+    avatar.className = "system-avatar";
+    avatar.src = m.user_pic;
+    avatar.alt = "";
+    avatar.onerror = () => avatar.remove();
+    pill.appendChild(avatar);
+  }
+
+  const username = String(m.username || "Unknown").replace(/^@/, "");
+  const usernameSpan = document.createElement("span");
+  usernameSpan.className = "username";
+  const profileLink = document.createElement("a");
+  profileLink.href = `https://www.tradingview.com/u/${encodeURIComponent(username)}/`;
+  profileLink.target = "_blank";
+  profileLink.rel = "noopener noreferrer";
+  profileLink.textContent = `@${username}`;
+  profileLink.title = `Open @${username}'s profile`;
+  usernameSpan.appendChild(profileLink);
+  pill.appendChild(usernameSpan);
+
+  if (m.username) {
+    const mentionBtn = document.createElement("button");
+    mentionBtn.type = "button";
+    mentionBtn.className = "mention-user-btn";
+    mentionBtn.textContent = "@";
+    mentionBtn.title = `Mention @${username}`;
+    mentionBtn.setAttribute("aria-label", mentionBtn.title);
+    mentionBtn.addEventListener("click", () => mentionUser(username));
+    pill.appendChild(mentionBtn);
+  }
+
+  const action = document.createElement("span");
+  action.className = "system-action";
+  action.textContent = isJoin ? "joined the room" : isLeave ? "left the room" : "room event";
+  pill.appendChild(action);
+
+  const time = document.createElement("span");
+  time.className = "time";
+  time.textContent = fmtTime(m.time);
+  pill.appendChild(time);
+
+  div.appendChild(pill);
+  return div;
+}
+
 function renderMessage(m) {
+  const type = String(m.type || "").toLowerCase();
+  const isJoin = type === "join" || type === "joined";
+  const isLeave = type === "leave" || type === "left";
+  const isService = isJoin || isLeave || Boolean(m.meta && m.meta.service_msg);
+
+  // Render join/leave and service notifications as dedicated system pills
+  if (isService && !m.text && !(m.meta && m.meta.type === "snapshot" && m.meta.url)) {
+    return renderServiceMessage(m, { isJoin, isLeave });
+  }
+
   const div = document.createElement("div");
   div.className = "msg";
   div.dataset.messageId = m.id || "";
@@ -1314,14 +1489,21 @@ function renderMessage(m) {
   meta.appendChild(time);
   body.appendChild(meta);
 
+  const hasSnapshot = Boolean(m.meta && m.meta.type === "snapshot" && m.meta.url);
+
   if (m.text) {
     const text = document.createElement("div");
     text.className = "text";
     addMessageContent(text, m.text);
     body.appendChild(text);
+  } else if (!hasSnapshot) {
+    const emptyText = document.createElement("div");
+    emptyText.className = "text text-empty";
+    emptyText.textContent = "[Empty message]";
+    body.appendChild(emptyText);
   }
 
-  if (m.meta && m.meta.type === "snapshot" && m.meta.url) {
+  if (hasSnapshot) {
     addSnapshot(body, m.meta.url);
   }
 
